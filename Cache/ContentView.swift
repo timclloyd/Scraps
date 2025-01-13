@@ -13,8 +13,8 @@ struct ContentView: View {
     @FocusState private var isFocused: Bool
     
     var textSize: CGFloat = 16
-    var horizontalPadding: CGFloat = 16
-    var verticalPadding: CGFloat = 0
+    var horizontalPadding: CGFloat = 2
+    var verticalPadding: CGFloat = 48
     
     var body: some View {
         VStack(spacing: 0) {
@@ -22,7 +22,7 @@ struct ContentView: View {
                 text: $currentText,
                 font: UIFont(name: "JetBrainsMono-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
                 padding: EdgeInsets(
-                    top: verticalPadding,
+                    top: 2,
                     leading: horizontalPadding,
                     bottom: verticalPadding,
                     trailing: horizontalPadding
@@ -61,6 +61,7 @@ struct TextEditorView: UIViewRepresentable {
             bottom: padding.bottom,
             right: padding.trailing
         )
+        textView.showsVerticalScrollIndicator = false
         return textView
     }
 
