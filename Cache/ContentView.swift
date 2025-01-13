@@ -22,7 +22,7 @@ struct ContentView: View {
                 text: $currentText,
                 font: UIFont(name: "JetBrainsMono-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
                 padding: EdgeInsets(
-                    top: 2,
+                    top: textSize,
                     leading: horizontalPadding,
                     bottom: verticalPadding,
                     trailing: horizontalPadding
@@ -62,6 +62,7 @@ struct TextEditorView: UIViewRepresentable {
             right: padding.trailing
         )
         textView.showsVerticalScrollIndicator = false
+        
         return textView
     }
 
