@@ -1,9 +1,12 @@
 - [x] Create basic app
-- [ ] Make ‘idea’ and ‘Idea’ text show highlighted automatically 
-	- Do this by defining a list of ‘key words’ which have an associated colour
-
-- [ ] Make text persist
-- [ ] Make tapping below the text put the cursor at the end
-- [ ] Add over scroll
-- [ ] Dismiss keyboard on scroll up
-- [ ] Scroll new lines into view when they’re create (under the kb)
+- [/] Make ‘idea’ and ‘Idea’ text show highlighted automatically ???
+- [x] Make text persist
+- [x] Make tapping below the text put the cursor at the end
+- [x] Add over scroll
+- [x] Dismiss keyboard on scroll up
+- [x] Scroll new lines into view when they’re created (under the kb)
+- [x] Add a Release scheme with debugging disabled
+- [x] Fine tune the typography - line height, paragraph height
+- [/] Design app icon - light and dark
+- [/] Fine tune colour scheme
+- [x] Create a way to clear the text ??? = shake = only works when kb is showing
