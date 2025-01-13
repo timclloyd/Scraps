@@ -153,7 +153,7 @@ class HighlightLayoutManager: NSLayoutManager {
             guard let self = self else { return }
             
             // Find matches in background
-            let pattern = "idea[a-zA-Z]*"
+            let pattern = "\\bidea[a-zA-Z]*"
             guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return }
             
             let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: text.count))
@@ -189,8 +189,9 @@ class HighlightLayoutManager: NSLayoutManager {
                                       in: textContainer) { (rect, stop) in
                     // Draw highlight
                     let highlightRect = rect.offsetBy(dx: origin.x, dy: origin.y)
+                    let paddedRect = highlightRect.insetBy(dx: -1, dy: 0)
                     self.highlightColor.setFill()
-                    UIBezierPath(roundedRect: highlightRect, cornerRadius: 3).fill()
+                    UIBezierPath(roundedRect: paddedRect, cornerRadius: 3).fill()
                 }
             }
         }
@@ -208,5 +209,16 @@ class ShakeableTextView: UITextView {
     
     override var canBecomeFirstResponder: Bool {
         return true
+    }
+    
+    override func resignFirstResponder() -> Bool {
+        // Keep first responder status for shake detection, but hide keyboard
+        self.inputView = UIView()
+        return false
+    }
+    
+    override func becomeFirstResponder() -> Bool {
+        self.inputView = nil
+        return super.becomeFirstResponder()
     }
 }
