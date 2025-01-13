@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the source directory and output file
-SOURCE_DIR="../MyiPadSketchbook"
+SOURCE_DIR="../Cache"
 OUTPUT_FILE="all-app-code.swift"
 
 # Remove the output file if it already exists
