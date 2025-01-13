@@ -14,48 +14,88 @@ struct ContentView: View {
     
     var textSize: CGFloat = 16
     var horizontalPadding: CGFloat = 16
+    var verticalPadding: CGFloat = 16
     
     var body: some View {
         VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(document.lines) { line in
-                            Text(line.text)
-                                .font(.custom("JetBrainsMono-Regular", size: textSize))
-                                .foregroundColor(isToday(date: line.creationDate) ? .primary : .secondary)
-                                .padding(.horizontal, horizontalPadding)
-                        }
-                        
-                        TextField("", text: $currentText, axis: .vertical)
-                            .font(.custom("JetBrainsMono-Regular", size: textSize))
-                            .textFieldStyle(.plain)
-                            .focused($isFocused)
-                            .padding(.horizontal, horizontalPadding)
-                            .id("textField")
-                            .onSubmit {
-                                if !currentText.isEmpty {
-                                    document.addLine(currentText)
-                                    currentText = ""
-                                    
-                                    // Scroll to bottom after a brief delay to ensure layout is updated
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                        withAnimation {
-                                            proxy.scrollTo("textField", anchor: .bottom)
-                                        }
-                                    }
-                                }
-                            }
-                    }
+            TextEditorView(
+                text: $currentText,
+                font: UIFont(name: "JetBrainsMono-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+                padding: EdgeInsets(
+                    top: verticalPadding,
+                    leading: horizontalPadding,
+                    bottom: verticalPadding,
+                    trailing: horizontalPadding
+                )
+            )
+            .focused($isFocused)
+            .onAppear {
+                isFocused = true // Focus cursor at the end when the view appears
+            }
+            .onChange(of: currentText) { newValue in
+                // Auto-save when the text changes
+                if !newValue.isEmpty {
+                    document.addLine(newValue)
                 }
             }
         }
-        .onAppear {
-            isFocused = true
+    }
+}
+
+struct TextEditorView: UIViewRepresentable {
+    @Binding var text: String
+    var font: UIFont
+    var padding: EdgeInsets
+    
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+        textView.isScrollEnabled = true
+        textView.font = font
+        textView.delegate = context.coordinator
+        textView.text = text
+        textView.backgroundColor = .clear
+        textView.keyboardDismissMode = .interactive
+        textView.textContainerInset = UIEdgeInsets(
+            top: padding.top,
+            left: padding.leading,
+            bottom: padding.bottom,
+            right: padding.trailing
+        )
+        
+        DispatchQueue.main.async {
+            let endPosition = textView.endOfDocument
+            textView.scrollRangeToVisible(NSRange(location: textView.offset(from: textView.beginningOfDocument, to: endPosition), length: 0))
         }
+        
+        return textView
     }
     
-    private func isToday(date: Date) -> Bool {
-        Calendar.current.isDateInToday(date)
+    func updateUIView(_ uiView: UITextView, context: Context) {
+        if uiView.text != text {
+            uiView.text = text
+        }
+        let endPosition = uiView.endOfDocument
+        uiView.scrollRangeToVisible(NSRange(location: uiView.offset(from: uiView.beginningOfDocument, to: endPosition), length: 0))
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UITextViewDelegate {
+        var parent: TextEditorView
+        
+        init(_ parent: TextEditorView) {
+            self.parent = parent
+        }
+        
+        func textViewDidChange(_ textView: UITextView) {
+            parent.text = textView.text
+        }
+        
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            let endPosition = textView.endOfDocument
+            textView.selectedTextRange = textView.textRange(from: endPosition, to: endPosition)
+        }
     }
 }
