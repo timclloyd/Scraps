@@ -10,3 +10,5 @@
 - [/] Design app icon - light and dark
 - [/] Fine tune colour scheme
 - [x] Create a way to clear the text ??? = shake = only works when kb is showing
+
+- [ ] Refactor so it’s easier to read 
