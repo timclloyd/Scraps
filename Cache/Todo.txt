@@ -1,0 +1,5 @@
+- [ ] Create basic app
+- [ ] Make ‘idea’ and ‘Idea’ text show highlighted automatically 
+	- Do this by defining a list of ‘key words’ which have an associated colour
+
+- [ ] Make text persist

@@ -9,53 +9,54 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
+    @StateObject private var document = NotesDocument()
+    @State private var currentText = ""
+    @FocusState private var isFocused: Bool
+    
+    var textSize: CGFloat = 16
+    var horizontalPadding: CGFloat = 16
+    
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+        VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(document.lines) { line in
+                            Text(line.text)
+                                .font(.custom("JetBrainsMono-Regular", size: textSize))
+                                .foregroundColor(isToday(date: line.creationDate) ? .primary : .secondary)
+                                .padding(.horizontal, horizontalPadding)
+                        }
+                        
+                        TextField("", text: $currentText, axis: .vertical)
+                            .font(.custom("JetBrainsMono-Regular", size: textSize))
+                            .textFieldStyle(.plain)
+                            .focused($isFocused)
+                            .padding(.horizontal, horizontalPadding)
+                            .id("textField")
+                            .onSubmit {
+                                if !currentText.isEmpty {
+                                    document.addLine(currentText)
+                                    currentText = ""
+                                    
+                                    // Scroll to bottom after a brief delay to ensure layout is updated
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        withAnimation {
+                                            proxy.scrollTo("textField", anchor: .bottom)
+                                        }
+                                    }
+                                }
+                            }
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
-        } detail: {
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
             }
         }
+        .onAppear {
+            isFocused = true
+        }
     }
-}
-
-#Preview {
-    ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+    
+    private func isToday(date: Date) -> Bool {
+        Calendar.current.isDateInToday(date)
+    }
 }
