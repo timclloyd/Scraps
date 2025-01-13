@@ -62,7 +62,18 @@ struct TextEditorView: UIViewRepresentable {
     var onShake: () -> Void
 
     func makeUIView(context: Context) -> ShakeableTextView {
-        let textView = ShakeableTextView()
+        // Create text storage and layout manager
+        let textStorage = NSTextStorage()
+        let layoutManager = HighlightLayoutManager()
+        textStorage.addLayoutManager(layoutManager)
+        
+        // Create text container with proper size
+        let textContainer = NSTextContainer(size: .zero)
+        textContainer.widthTracksTextView = true
+        layoutManager.addTextContainer(textContainer)
+        
+        // Create text view with our custom text system
+        let textView = ShakeableTextView(frame: .zero, textContainer: textContainer)
         textView.isScrollEnabled = true
         textView.font = font
         textView.delegate = context.coordinator
@@ -87,7 +98,10 @@ struct TextEditorView: UIViewRepresentable {
     func updateUIView(_ uiView: ShakeableTextView, context: Context) {
         if uiView.text != text {
             uiView.text = text
-            context.coordinator.scheduleHighlighting(for: uiView)
+            // Process text for highlighting when text is updated
+            if let layoutManager = uiView.layoutManager as? HighlightLayoutManager {
+                layoutManager.scheduleMatchUpdate(for: text)
+            }
         }
     }
 
@@ -97,97 +111,86 @@ struct TextEditorView: UIViewRepresentable {
 
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: TextEditorView
-        private var highlightWorkItem: DispatchWorkItem?
-        private var lastProcessedText: String = ""
 
         init(_ parent: TextEditorView) {
             self.parent = parent
         }
 
         func textViewDidChange(_ textView: UITextView) {
-            guard let text = textView.text else { return }
-            parent.text = text
+            parent.text = textView.text
             
-            // Only schedule update if text has changed
-            if lastProcessedText != text {
-                lastProcessedText = text
-                scheduleHighlighting(for: textView as! ShakeableTextView)
+            // Schedule match finding on background queue
+            if let layoutManager = textView.layoutManager as? HighlightLayoutManager {
+                layoutManager.scheduleMatchUpdate(for: textView.text)
+            }
+        }
+    }
+}
+
+class HighlightLayoutManager: NSLayoutManager {
+    private var cachedMatches: [(range: NSRange, rects: [CGRect])] = []
+    private var lastProcessedText: String = ""
+    private var updateWorkItem: DispatchWorkItem?
+    
+    let highlightColor = UIColor { traitCollection in
+        switch traitCollection.userInterfaceStyle {
+        case .dark:
+            return UIColor(red: 0.4, green: 0.3, blue: 0.6, alpha: 0.8)
+        default:
+            return UIColor(red: 0.85, green: 0.8, blue: 1.0, alpha: 0.8)
+        }
+    }
+    
+    func scheduleMatchUpdate(for text: String) {
+        // Cancel any pending updates
+        updateWorkItem?.cancel()
+        
+        // Skip if text hasn't changed
+        guard text != lastProcessedText else { return }
+        lastProcessedText = text
+        
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            
+            // Find matches in background
+            let pattern = "\\bidea\\b"
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return }
+            
+            let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: text.count))
+            let newMatches = matches.map { match in
+                (range: match.range, rects: [CGRect]()) // Empty rects to be filled during drawing
+            }
+            
+            // Update cache and invalidate display on main thread
+            DispatchQueue.main.async {
+                self.cachedMatches = newMatches
+                self.invalidateDisplay(forGlyphRange: NSRange(location: 0, length: self.numberOfGlyphs))
             }
         }
         
-        func scheduleHighlighting(for textView: ShakeableTextView) {
-            // Cancel any pending highlight operations
-            highlightWorkItem?.cancel()
-            
-            // Create new highlight operation
-            let workItem = DispatchWorkItem { [weak self] in
-                self?.applyHighlighting(to: textView)
-            }
-            
-            // Store reference to new work item
-            highlightWorkItem = workItem
-            
-            // Schedule the highlighting after a short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
-        }
+        updateWorkItem = workItem
+        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
+    }
+    
+    override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
+        super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
         
-        private func applyHighlighting(to textView: ShakeableTextView) {
-            guard let text = textView.text else { return }
+        guard let textContainer = textContainers.first else { return }
+        
+        // Draw highlights for cached matches that intersect with the current glyph range
+        for match in cachedMatches {
+            let matchGlyphRange = glyphRange(forCharacterRange: match.range, actualCharacterRange: nil)
             
-            // Create attributes on background queue
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                guard let self = self else { return }
-                
-                let attributedString = NSMutableAttributedString(string: text)
-                
-                // Define the light purple color that works in both light and dark modes
-                let highlightColor = UIColor { traitCollection in
-                    switch traitCollection.userInterfaceStyle {
-                    case .dark:
-                        return UIColor(red: 0.4, green: 0.3, blue: 0.6, alpha: 0.3)
-                    default:
-                        return UIColor(red: 0.85, green: 0.8, blue: 1.0, alpha: 0.3)
-                    }
-                }
-                
-                // Set the text color based on the current theme
-                let textColor = UIColor.label
-                attributedString.addAttribute(.foregroundColor,
-                                            value: textColor,
-                                            range: NSRange(location: 0, length: text.count))
-                
-                // Find all occurrences of "idea" (case insensitive)
-                let pattern = "\\bidea\\b"
-                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                    let range = NSRange(text.startIndex..., in: text)
-                    let matches = regex.matches(in: text, options: [], range: range)
-                    
-                    // Apply highlighting to each match
-                    for match in matches {
-                        attributedString.addAttribute(.backgroundColor,
-                                                   value: highlightColor,
-                                                   range: match.range)
-                    }
-                }
-                
-                // Maintain the font
-                attributedString.addAttribute(.font,
-                                            value: textView.font ?? UIFont.systemFont(ofSize: 16),
-                                            range: NSRange(location: 0, length: text.count))
-                
-                // Update UI on main queue
-                DispatchQueue.main.async {
-                    // Only update if this is still the current work item
-                    if self.highlightWorkItem?.isCancelled == false {
-                        // Save selection
-                        let selectedRange = textView.selectedRange
-                        
-                        // Update attributed text
-                        textView.attributedText = attributedString
-                        
-                        // Restore selection
-                        textView.selectedRange = selectedRange
-                    }
+            // Check if this match intersects with the glyphs we're supposed to show
+            if NSIntersectionRange(matchGlyphRange, glyphsToShow).length > 0 {
+                // Get rects for this range of text
+                enumerateEnclosingRects(forGlyphRange: matchGlyphRange,
+                                      withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0),
+                                      in: textContainer) { (rect, stop) in
+                    // Draw highlight
+                    let highlightRect = rect.offsetBy(dx: origin.x, dy: origin.y)
+                    self.highlightColor.setFill()
+                    UIBezierPath(roundedRect: highlightRect, cornerRadius: 3).fill()
                 }
             }
         }
