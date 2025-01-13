@@ -153,7 +153,7 @@ class HighlightLayoutManager: NSLayoutManager {
             guard let self = self else { return }
             
             // Find matches in background
-            let pattern = "\\bidea\\b"
+            let pattern = "idea[a-zA-Z]*"
             guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return }
             
             let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: text.count))
