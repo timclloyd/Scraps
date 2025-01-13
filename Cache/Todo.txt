@@ -1,14 +1,23 @@
+# Todo
 - [x] Create basic app
-- [/] Make ‘idea’ and ‘Idea’ text show highlighted automatically ???
 - [x] Make text persist
 - [x] Make tapping below the text put the cursor at the end
 - [x] Add over scroll
 - [x] Dismiss keyboard on scroll up
 - [x] Scroll new lines into view when they’re created (under the kb)
-- [x] Add a Release scheme with debugging disabled
-- [x] Fine tune the typography - line height, paragraph height
-- [/] Design app icon - light and dark
-- [/] Fine tune colour scheme
 - [x] Create a way to clear the text ??? = shake = only works when kb is showing
-
+- [/] Make ‘idea’ and ‘Idea’ text show highlighted automatically ???
+- [x] Fine tune the typography - line height, paragraph height
+- [x] Design app icon - light and dark
+- [/] Fine tune colour scheme
+- [x] Add a Release scheme with debugging disabled
 - [ ] Refactor so it’s easier to read 
+
+# Ideas
+
+- What if text started to degrade after 1 day?
+	- Simple: get more faint over time
+	- Complex: per character or per word alpha? 
+- What if erase all had a cool animation
+	- Text un-writes itself...
+	- Disappear char by char randomly
