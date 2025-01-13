@@ -42,14 +42,14 @@ struct ContentView: View {
                     document.addLine(newValue)
                 }
             }
-            .alert("Delete All Text?", isPresented: $showingDeleteAlert) {
+            .alert("Clear the cache?", isPresented: $showingDeleteAlert) {
                 Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
+                Button("Clear", role: .destructive) {
                     currentText = ""
                     document.lines.removeAll()
                 }
             } message: {
-                Text("This action cannot be undone.")
+                Text("It's good to forget things sometimes")
             }
         }
     }
