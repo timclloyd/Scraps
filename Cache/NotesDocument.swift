@@ -5,8 +5,6 @@
 //  Created by Tim Lloyd on 2025-01-13.
 //
 
-
-// NotesDocument.swift
 import SwiftUI
 
 class NotesDocument: ObservableObject {

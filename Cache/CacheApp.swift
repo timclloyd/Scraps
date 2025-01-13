@@ -13,6 +13,9 @@ struct NotesApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+                    UserDefaults.standard.synchronize()
+                }
         }
     }
 }

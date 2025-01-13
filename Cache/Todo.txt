@@ -1,5 +1,7 @@
-- [ ] Create basic app
+- [x] Create basic app
 - [ ] Make ‘idea’ and ‘Idea’ text show highlighted automatically 
 	- Do this by defining a list of ‘key words’ which have an associated colour
 
 - [ ] Make text persist
+- [ ] Make tapping below the text put the cursor at the end
+- [ ] Add over scroll

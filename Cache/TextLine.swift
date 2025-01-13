@@ -5,7 +5,6 @@
 //  Created by Tim Lloyd on 2025-01-13.
 //
 
-
 import Foundation
 
 struct TextLine: Identifiable, Codable {

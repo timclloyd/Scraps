@@ -6,11 +6,10 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
     @StateObject private var document = NotesDocument()
-    @State private var currentText = ""
+    @AppStorage("currentText") private var currentText = ""
     @FocusState private var isFocused: Bool
     
     var textSize: CGFloat = 16
