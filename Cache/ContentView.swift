@@ -135,9 +135,9 @@ class HighlightLayoutManager: NSLayoutManager {
     let highlightColor = UIColor { traitCollection in
         switch traitCollection.userInterfaceStyle {
         case .dark:
-            return UIColor(red: 0.4, green: 0.3, blue: 0.6, alpha: 0.8)
+            return UIColor(hue: 205 / 360, saturation: 0.8, brightness: 1.0, alpha: 0.58)
         default:
-            return UIColor(red: 0.85, green: 0.8, blue: 1.0, alpha: 0.8)
+            return UIColor(hue: 205 / 360, saturation: 0.8, brightness: 1.0, alpha: 0.42)
         }
     }
     
