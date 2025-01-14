@@ -19,8 +19,10 @@
 - [/] Rename app to Ideas ???
 - [-] Update the bottom of the TextView while kb is sliding down to prevent the text from appearing cut off during the transition = change to .none so kb is always visible
 - [x] Add haptic feedback to shake gesture
-- [ ] It seems to be preventing display sleep - stop that
+- [-] It seems to be preventing display sleep - stop that = not true nothing to fix!
 - [ ] Make the initial launch to text input faster - currently slow due to kb show animation
+- [ ] Try preventing highlights from moving slower than text when adding/removing newlines
+- [ ] Try highlighting URLs and making them tappable
 
 # Ideas
 
