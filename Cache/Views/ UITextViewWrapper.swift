@@ -19,26 +19,23 @@ struct  UITextViewWrapper: UIViewRepresentable {
     var onShake: () -> Void
 
     func makeUIView(context: Context) -> CustomTextView {
-        // Create text storage and layout manager
-        let textStorage = NSTextStorage()
+        // Create text view with a custom layout manager
         let layoutManager = TextHighlightManager()
-        textStorage.addLayoutManager(layoutManager)
-        
-        // Create text container with proper size
         let textContainer = NSTextContainer(size: .zero)
-        textContainer.widthTracksTextView = true
+        let textStorage = NSTextStorage()
+        
+        textStorage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(textContainer)
         
-        // Create text view with custom text system
         let textView = CustomTextView(frame: .zero, textContainer: textContainer)
         textView.isScrollEnabled = true
         textView.font = font
         textView.delegate = context.coordinator
         textView.backgroundColor = .clear
         textView.keyboardDismissMode = .none
+        textView.showsVerticalScrollIndicator = false
+        textView.onShake = onShake
         
-        // Configure text container for proper width
-        textView.textContainer.lineFragmentPadding = 0
         textView.textContainerInset = UIEdgeInsets(
             top: padding.top,
             left: padding.leading,
@@ -46,19 +43,12 @@ struct  UITextViewWrapper: UIViewRepresentable {
             right: padding.trailing
         )
         
-        textView.showsVerticalScrollIndicator = false
-        textView.onShake = onShake
-        
         return textView
     }
     
     func updateUIView(_ uiView: CustomTextView, context: Context) {
         if uiView.text != text {
             uiView.text = text
-            // Process text for highlighting when text is updated
-            if let layoutManager = uiView.layoutManager as? TextHighlightManager {
-                layoutManager.scheduleTextHighlight(for: text)
-            }
         }
     }
 
@@ -75,11 +65,6 @@ struct  UITextViewWrapper: UIViewRepresentable {
 
         func textViewDidChange(_ textView: UITextView) {
             parent.text = textView.text
-            
-            // Schedule match finding on background queue
-            if let layoutManager = textView.layoutManager as? TextHighlightManager {
-                layoutManager.scheduleTextHighlight(for: textView.text)
-            }
         }
     }
 }
