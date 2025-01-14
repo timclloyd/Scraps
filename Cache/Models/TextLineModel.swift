@@ -1,5 +1,5 @@
 //
-//  TextLine.swift
+//  TextLineModel.swift
 //  Cache
 //
 //  Created by Tim Lloyd on 2025-01-13.
@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct TextLine: Identifiable, Codable {
+struct TextLineModel: Identifiable, Codable {
     let id: UUID
     var text: String
     let creationDate: Date

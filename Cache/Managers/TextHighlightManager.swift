@@ -1,5 +1,5 @@
 //
-//  HighlightLayoutManager.swift
+//  TextHighlightManager.swift
 //  Cache
 //
 //  Created by Tim Lloyd on 2025-01-14.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-class HighlightLayoutManager: NSLayoutManager {
+class TextHighlightManager: NSLayoutManager {
     struct HighlightPattern {
         let pattern: String
         let regex: NSRegularExpression // Pre-compile regex
@@ -54,7 +54,7 @@ class HighlightLayoutManager: NSLayoutManager {
     private var debounceTimer: Timer?
     private let debounceInterval: TimeInterval = 0.1
     
-    func scheduleMatchUpdate(for text: String) {
+    func scheduleTextHighlight(for text: String) {
         // Cancel existing timer
         debounceTimer?.invalidate()
         updateWorkItem?.cancel()
@@ -64,11 +64,11 @@ class HighlightLayoutManager: NSLayoutManager {
         
         // Create new timer
         debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
-            self?.performMatchUpdate(for: text)
+            self?.highlightText(for: text)
         }
     }
     
-    private func performMatchUpdate(for text: String) {
+    private func highlightText(for text: String) {
         lastProcessedText = text
         
         let workItem = DispatchWorkItem { [weak self] in
@@ -76,7 +76,7 @@ class HighlightLayoutManager: NSLayoutManager {
             
             // Pre-allocate array capacity
             var newMatches = [(range: NSRange, color: UIColor, rects: [CGRect])]()
-            newMatches.reserveCapacity(10)  // Adjust based on expected number of matches
+            newMatches.reserveCapacity(20)
             
             let textRange = NSRange(location: 0, length: text.count)
             
@@ -110,7 +110,6 @@ class HighlightLayoutManager: NSLayoutManager {
         DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
     
-    // Memory management
     deinit {
         updateWorkItem?.cancel()
         debounceTimer?.invalidate()

@@ -7,6 +7,8 @@
 //  SwiftUI wrapper around a custom UITextView implementation
 //  to workaround SwiftUI TextEditor not showing/hiding the keyboard
 //  reliably and to make custom highlighting easier
+//
+//  Maybe this is overcomplicated? I'm not sure...
 
 import SwiftUI
 
@@ -19,7 +21,7 @@ struct  UITextViewWrapper: UIViewRepresentable {
     func makeUIView(context: Context) -> CustomTextView {
         // Create text storage and layout manager
         let textStorage = NSTextStorage()
-        let layoutManager = HighlightLayoutManager()
+        let layoutManager = TextHighlightManager()
         textStorage.addLayoutManager(layoutManager)
         
         // Create text container with proper size
@@ -54,8 +56,8 @@ struct  UITextViewWrapper: UIViewRepresentable {
         if uiView.text != text {
             uiView.text = text
             // Process text for highlighting when text is updated
-            if let layoutManager = uiView.layoutManager as? HighlightLayoutManager {
-                layoutManager.scheduleMatchUpdate(for: text)
+            if let layoutManager = uiView.layoutManager as? TextHighlightManager {
+                layoutManager.scheduleTextHighlight(for: text)
             }
         }
     }
@@ -75,8 +77,8 @@ struct  UITextViewWrapper: UIViewRepresentable {
             parent.text = textView.text
             
             // Schedule match finding on background queue
-            if let layoutManager = textView.layoutManager as? HighlightLayoutManager {
-                layoutManager.scheduleMatchUpdate(for: textView.text)
+            if let layoutManager = textView.layoutManager as? TextHighlightManager {
+                layoutManager.scheduleTextHighlight(for: textView.text)
             }
         }
     }

@@ -8,7 +8,7 @@
 import SwiftUI
 
 class TextLineManager: ObservableObject {
-    @Published var lines: [TextLine] = []
+    @Published var lines: [TextLineModel] = []
     private let saveURL: URL
     
     init() {
@@ -18,13 +18,13 @@ class TextLineManager: ObservableObject {
     }
     
     func addLine(_ text: String) {
-        lines.append(TextLine(text: text))
+        lines.append(TextLineModel(text: text))
         saveData()
     }
     
     private func loadData() {
         guard let data = try? Data(contentsOf: saveURL),
-              let loadedLines = try? JSONDecoder().decode([TextLine].self, from: data) else {
+              let loadedLines = try? JSONDecoder().decode([TextLineModel].self, from: data) else {
             return
         }
         lines = loadedLines
