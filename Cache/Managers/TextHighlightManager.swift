@@ -7,24 +7,25 @@
 
 import SwiftUI
 
+import SwiftUI
+
 class TextHighlightManager: NSLayoutManager {
     struct HighlightPattern {
         let pattern: String
-        let regex: NSRegularExpression // Pre-compile regex
-        let color: UIColor
+        let regex: NSRegularExpression
+        let backgroundColor: UIColor
         
-        init(pattern: String, color: UIColor) {
+        init(pattern: String, backgroundColor: UIColor) {
             self.pattern = pattern
             self.regex = try! NSRegularExpression(pattern: pattern, options: .caseInsensitive)
-            self.color = color
+            self.backgroundColor = backgroundColor
         }
     }
     
-    // Cache patterns at initialization time
-    private lazy var patterns: [HighlightPattern] = [
+    let patterns: [HighlightPattern] = [
         HighlightPattern( // Idea
             pattern: "\\bidea[a-zA-Z]*",
-            color: UIColor { traitCollection in
+            backgroundColor: UIColor { traitCollection in
                 switch traitCollection.userInterfaceStyle {
                 case .dark:
                     return UIColor(hue: 205/360, saturation: 0.8, brightness: 1.0, alpha: 0.58)
@@ -35,7 +36,7 @@ class TextHighlightManager: NSLayoutManager {
         ),
         HighlightPattern( // Fun
             pattern: "\\bfun\\b",
-            color: UIColor { traitCollection in
+            backgroundColor: UIColor { traitCollection in
                 switch traitCollection.userInterfaceStyle {
                 case .dark:
                     return UIColor(hue: 142/360, saturation: 0.6, brightness: 1.0, alpha: 0.5)
@@ -45,103 +46,45 @@ class TextHighlightManager: NSLayoutManager {
             }
         )
     ]
-    
-    private var cachedMatches: [(range: NSRange, color: UIColor, rects: [CGRect])] = []
-    private var lastProcessedText: String = ""
-    private var updateWorkItem: DispatchWorkItem?
-    
-    // Add a debounce timer to prevent too frequent updates
-    private var debounceTimer: Timer?
-    private let debounceInterval: TimeInterval = 0.1
-    
-    func scheduleTextHighlight(for text: String) {
-        // Cancel existing timer
-        debounceTimer?.invalidate()
-        updateWorkItem?.cancel()
+
+    private var isProcessing = false
+
+    override func processEditing(for textStorage: NSTextStorage,
+                               edited editMask: NSTextStorage.EditActions,
+                               range newCharRange: NSRange,
+                               changeInLength delta: Int,
+                               invalidatedRange invalidatedCharRange: NSRange) {
+        super.processEditing(for: textStorage,
+                            edited: editMask,
+                            range: newCharRange,
+                            changeInLength: delta,
+                            invalidatedRange: invalidatedCharRange)
         
-        // Skip if text hasn't changed
-        guard text != lastProcessedText else { return }
+        // Skip if we're already processing
+        guard !isProcessing else { return }
         
-        // Create new timer
-        debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
-            self?.highlightText(for: text)
-        }
-    }
-    
-    private func highlightText(for text: String) {
-        lastProcessedText = text
+        isProcessing = true
         
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-            
-            // Pre-allocate array capacity
-            var newMatches = [(range: NSRange, color: UIColor, rects: [CGRect])]()
-            newMatches.reserveCapacity(20)
-            
-            let textRange = NSRange(location: 0, length: text.count)
-            
-            // Process each pattern
-            for pattern in self.patterns {
-                let matches = pattern.regex.matches(in: text, options: [], range: textRange)
-                newMatches.append(contentsOf: matches.map { match in
-                    (range: match.range, color: pattern.color, rects: [CGRect]())
-                })
-            }
-            
-            // Update cache and invalidate display on main thread
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                self.cachedMatches = newMatches
-                // Only invalidate the changed regions
-                let union = newMatches.reduce(NSRange(location: NSNotFound, length: 0)) { result, match in
-                    if result.location == NSNotFound {
-                        return match.range
-                    }
-                    return NSUnionRange(result, match.range)
-                }
-                if union.location != NSNotFound {
-                    let glyphRange = self.glyphRange(forCharacterRange: union, actualCharacterRange: nil)
-                    self.invalidateDisplay(forGlyphRange: glyphRange)
+        let text = textStorage.string
+        let entireRange = NSRange(location: 0, length: text.count)
+        
+        // Begin editing session
+        textStorage.beginEditing()
+        
+        // Clear existing highlights
+        textStorage.removeAttribute(.backgroundColor, range: entireRange)
+        
+        // Apply new highlights immediately
+        for pattern in patterns {
+            let matches = pattern.regex.matches(in: text, options: [], range: entireRange)
+            for match in matches {
+                if match.range.location + match.range.length <= textStorage.length {
+                    textStorage.addAttribute(.backgroundColor, value: pattern.backgroundColor, range: match.range)
                 }
             }
         }
         
-        updateWorkItem = workItem
-        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
-    }
-    
-    deinit {
-        updateWorkItem?.cancel()
-        debounceTimer?.invalidate()
-    }
-    
-    override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
-        super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
-        
-        guard let textContainer = textContainers.first,
-              !cachedMatches.isEmpty else { return }
-        
-        // Create path once and reuse
-        let path = UIBezierPath()
-        path.lineWidth = 0
-        
-        for match in cachedMatches {
-            let matchGlyphRange = glyphRange(forCharacterRange: match.range, actualCharacterRange: nil)
-            
-            if NSIntersectionRange(matchGlyphRange, glyphsToShow).length > 0 {
-                enumerateEnclosingRects(forGlyphRange: matchGlyphRange,
-                                      withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0),
-                                      in: textContainer) { (rect, stop) in
-                    let highlightRect = rect.offsetBy(dx: origin.x, dy: origin.y)
-                    let paddedRect = highlightRect.insetBy(dx: -1, dy: 1)
-                    path.removeAllPoints()
-                    // Use the rounded rect initializer and then append that path
-                    let roundedRectPath = UIBezierPath(roundedRect: paddedRect, cornerRadius: 0)
-                    path.append(roundedRectPath)
-                    match.color.setFill()
-                    path.fill()
-                }
-            }
-        }
+        textStorage.endEditing()
+        isProcessing = false
     }
 }

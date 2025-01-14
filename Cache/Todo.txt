@@ -21,14 +21,16 @@
 - [x] Add haptic feedback to shake gesture
 - [-] It seems to be preventing display sleep - stop that = not true nothing to fix!
 - [ ] Make the initial launch to text input faster - currently slow due to kb show animation
-- [ ] Try preventing highlights from moving slower than text when adding/removing newlines
+- [x] Prevent highlights from moving slower than text when adding/removing newlines
 - [ ] Try highlighting URLs and making them tappable
 
 # Ideas
 
-- What if text started to degrade after 1 day?
-	- Simple: get more faint over time
-	- Complex: per character or per word alpha? 
-- What if erase all had a cool animation
-	- Text un-writes itself...
-	- Disappear char by char randomly
+What if text started to degrade after 1 day?
+- Simple: get more faint over time
+- Complex: per character or per word alpha? 
+
+What if clearing all text had a cool animation
+- Text un-writes itself...
+- Disappear char by char randomly
+
