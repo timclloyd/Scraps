@@ -134,10 +134,10 @@ class HighlightLayoutManager: NSLayoutManager {
                                       withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0),
                                       in: textContainer) { (rect, stop) in
                     let highlightRect = rect.offsetBy(dx: origin.x, dy: origin.y)
-                    let paddedRect = highlightRect.insetBy(dx: -1, dy: 0)
+                    let paddedRect = highlightRect.insetBy(dx: -1, dy: 1)
                     path.removeAllPoints()
                     // Use the rounded rect initializer and then append that path
-                    let roundedRectPath = UIBezierPath(roundedRect: paddedRect, cornerRadius: 3)
+                    let roundedRectPath = UIBezierPath(roundedRect: paddedRect, cornerRadius: 0)
                     path.append(roundedRectPath)
                     match.color.setFill()
                     path.fill()
