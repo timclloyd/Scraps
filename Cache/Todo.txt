@@ -1,28 +1,14 @@
 # Todo
-- [x] Create basic app
-- [x] Make text persist
-- [x] Make tapping below the text put the cursor at the end
-- [x] Add over scroll
-- [x] Dismiss keyboard on scroll up
-- [x] Scroll new lines into view when they’re created (under the kb)
-- [x] Create a way to clear the text ??? = shake = only works when kb is showing
-- [x] Make ‘idea’ and ‘Idea’ text show highlighted automatically ???
-- [x] Fine tune the typography - line height, paragraph height
-- [x] Design app icon - light and dark
 - [/] Fine tune colour scheme
 	- [ ] Accent colours... gut feel is I want something warmer?
 	- [ ] Tint the text slightly with accent colour?
-- [x] Add a Release scheme with debugging disabled
 - [/] Refactor so it’s easier to read 
 - [/] Add tests
-- [x] Bug: kb doesn’t show except on app launch e.g. after clearing all text
 - [/] Rename app to Ideas ???
-- [-] Update the bottom of the TextView while kb is sliding down to prevent the text from appearing cut off during the transition = change to .none so kb is always visible
-- [x] Add haptic feedback to shake gesture
-- [-] It seems to be preventing display sleep - stop that = not true nothing to fix!
 - [ ] Make the initial launch to text input faster - currently slow due to kb show animation
-- [x] Prevent highlights from moving slower than text when adding/removing newlines
 - [ ] Try highlighting URLs and making them tappable
+- [ ] Design App Store assets and text
+- [ ] Deploy to the App Store 
 
 # Ideas
 
