@@ -13,6 +13,9 @@ class CustomTextView: UITextView {
     
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
         if motion == .motionShake {
+            // Generate haptic feedback
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.warning)
             onShake?()
         }
     }

@@ -13,7 +13,9 @@
 - [x] Add a Release scheme with debugging disabled
 - [/] Refactor so it’s easier to read 
 - [x] Bug: kb doesn’t show except on app launch e.g. after clearing all text
-- [ ] Rename app to Ideas ???
+- [/] Rename app to Ideas ???
+- [-] Update the bottom of the TextView while kb is sliding down to prevent the text from appearing cut off during the transition = change to .none so kb is always visible
+- [x] Add haptic feedback to shake gesture
 
 # Ideas
 

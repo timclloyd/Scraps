@@ -44,10 +44,15 @@ struct MainView: View {
                 }
             }
             .alert("Clear the cache?", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) { }
+                Button("Cancel", role: .cancel) {
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+                }
                 Button("Clear", role: .destructive) {
                     currentText = ""
                     document.lines.removeAll()
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
                 }
             } message: {
                 Text("It's good to forget things sometimes")
