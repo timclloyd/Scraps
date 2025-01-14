@@ -14,7 +14,7 @@ struct MainView: View {
     @FocusState private var isFocused: Bool
     @State private var showingDeleteAlert = false
     
-    var textSize: CGFloat = 16
+    var textSize: CGFloat = 17
     var horizontalPadding: CGFloat = 8
     var verticalPadding: CGFloat = 48
     
@@ -22,7 +22,7 @@ struct MainView: View {
         VStack(spacing: 0) {
              UITextViewWrapper(
                 text: $currentText,
-                font: UIFont(name: "JetBrainsMono-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+                font: UIFont(name: "iAWriterQuattroS-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
                 padding: EdgeInsets(
                     top: textSize,
                     leading: horizontalPadding,
