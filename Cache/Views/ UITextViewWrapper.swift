@@ -27,13 +27,13 @@ struct  UITextViewWrapper: UIViewRepresentable {
         textContainer.widthTracksTextView = true
         layoutManager.addTextContainer(textContainer)
         
-        // Create text view with our custom text system
+        // Create text view with custom text system
         let textView = CustomTextView(frame: .zero, textContainer: textContainer)
         textView.isScrollEnabled = true
         textView.font = font
         textView.delegate = context.coordinator
         textView.backgroundColor = .clear
-        textView.keyboardDismissMode = .interactive
+        textView.keyboardDismissMode = .none
         
         // Configure text container for proper width
         textView.textContainer.lineFragmentPadding = 0
