@@ -6,13 +6,14 @@
 - [x] Dismiss keyboard on scroll up
 - [x] Scroll new lines into view when they’re created (under the kb)
 - [x] Create a way to clear the text ??? = shake = only works when kb is showing
-- [/] Make ‘idea’ and ‘Idea’ text show highlighted automatically ???
+- [x] Make ‘idea’ and ‘Idea’ text show highlighted automatically ???
 - [x] Fine tune the typography - line height, paragraph height
 - [x] Design app icon - light and dark
 - [/] Fine tune colour scheme
 - [x] Add a Release scheme with debugging disabled
-- [ ] Refactor so it’s easier to read 
+- [/] Refactor so it’s easier to read 
 - [x] Bug: kb doesn’t show except on app launch e.g. after clearing all text
+- [ ] Rename app to Ideas ???
 
 # Ideas
 
