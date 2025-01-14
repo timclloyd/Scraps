@@ -1,5 +1,5 @@
 //
-//  NotesDocument.swift
+//  TextLineManager.swift
 //  Cache
 //
 //  Created by Tim Lloyd on 2025-01-13.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-class NotesDocument: ObservableObject {
+class TextLineManager: ObservableObject {
     @Published var lines: [TextLine] = []
     private let saveURL: URL
     

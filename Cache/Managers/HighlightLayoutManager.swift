@@ -1,136 +1,16 @@
 //
-//  ContentView.swift
+//  HighlightLayoutManager.swift
 //  Cache
 //
-//  Created by Tim Lloyd on 2025-01-13.
+//  Created by Tim Lloyd on 2025-01-14.
 //
 
 import SwiftUI
 
-struct ContentView: View {
-    @StateObject private var document = NotesDocument()
-    @AppStorage("currentText") private var currentText = ""
-    @FocusState private var isFocused: Bool
-    @State private var showingDeleteAlert = false
-    
-    var textSize: CGFloat = 16
-    var horizontalPadding: CGFloat = 8
-    var verticalPadding: CGFloat = 48
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            TextEditorView(
-                text: $currentText,
-                font: UIFont(name: "JetBrainsMono-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
-                padding: EdgeInsets(
-                    top: textSize,
-                    leading: horizontalPadding,
-                    bottom: verticalPadding,
-                    trailing: horizontalPadding
-                ),
-                onShake: {
-                    // Show delete confirmation when shake is detected
-                    showingDeleteAlert = true
-                }
-            )
-            .focused($isFocused)
-            .onAppear {
-                isFocused = true
-            }
-            .onChange(of: currentText) { oldValue, newValue in
-                if !newValue.isEmpty {
-                    document.addLine(newValue)
-                }
-            }
-            .alert("Clear the cache?", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Clear", role: .destructive) {
-                    currentText = ""
-                    document.lines.removeAll()
-                }
-            } message: {
-                Text("It's good to forget things sometimes")
-            }
-        }
-    }
-}
-
-struct TextEditorView: UIViewRepresentable {
-    @Binding var text: String
-    var font: UIFont
-    var padding: EdgeInsets
-    var onShake: () -> Void
-
-    func makeUIView(context: Context) -> ShakeableTextView {
-        // Create text storage and layout manager
-        let textStorage = NSTextStorage()
-        let layoutManager = HighlightLayoutManager()
-        textStorage.addLayoutManager(layoutManager)
-        
-        // Create text container with proper size
-        let textContainer = NSTextContainer(size: .zero)
-        textContainer.widthTracksTextView = true
-        layoutManager.addTextContainer(textContainer)
-        
-        // Create text view with our custom text system
-        let textView = ShakeableTextView(frame: .zero, textContainer: textContainer)
-        textView.isScrollEnabled = true
-        textView.font = font
-        textView.delegate = context.coordinator
-        textView.backgroundColor = .clear
-        textView.keyboardDismissMode = .interactive
-        
-        // Configure text container for proper width
-        textView.textContainer.lineFragmentPadding = 0
-        textView.textContainerInset = UIEdgeInsets(
-            top: padding.top,
-            left: padding.leading,
-            bottom: padding.bottom,
-            right: padding.trailing
-        )
-        
-        textView.showsVerticalScrollIndicator = false
-        textView.onShake = onShake
-        
-        return textView
-    }
-    
-    func updateUIView(_ uiView: ShakeableTextView, context: Context) {
-        if uiView.text != text {
-            uiView.text = text
-            // Process text for highlighting when text is updated
-            if let layoutManager = uiView.layoutManager as? HighlightLayoutManager {
-                layoutManager.scheduleMatchUpdate(for: text)
-            }
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, UITextViewDelegate {
-        var parent: TextEditorView
-
-        init(_ parent: TextEditorView) {
-            self.parent = parent
-        }
-
-        func textViewDidChange(_ textView: UITextView) {
-            parent.text = textView.text
-            
-            // Schedule match finding on background queue
-            if let layoutManager = textView.layoutManager as? HighlightLayoutManager {
-                layoutManager.scheduleMatchUpdate(for: textView.text)
-            }
-        }
-    }
-}
-
 class HighlightLayoutManager: NSLayoutManager {
     struct HighlightPattern {
         let pattern: String
-        let regex: NSRegularExpression  // Pre-compile regex
+        let regex: NSRegularExpression // Pre-compile regex
         let color: UIColor
         
         init(pattern: String, color: UIColor) {
@@ -264,32 +144,5 @@ class HighlightLayoutManager: NSLayoutManager {
                 }
             }
         }
-    }
-}
-
-class ShakeableTextView: UITextView {
-    var onShake: (() -> Void)?
-    
-    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        if motion == .motionShake {
-            onShake?()
-        }
-    }
-    
-    override var canBecomeFirstResponder: Bool {
-        return true
-    }
-    
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        super.touchesBegan(touches, with: event)
-        if !isFirstResponder {
-            becomeFirstResponder()
-        }
-    }
-    
-    override func resignFirstResponder() -> Bool {
-        // Allow normal resignation of first responder status
-        self.inputView = nil
-        return super.resignFirstResponder()
     }
 }

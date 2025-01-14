@@ -12,7 +12,7 @@ import SwiftData
 struct NotesApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainView()
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
                     UserDefaults.standard.synchronize()
                 }
