@@ -22,7 +22,7 @@ class TextHighlightManager: NSLayoutManager {
         }
     }
     
-    private lazy var patterns: [HighlightPattern] = [
+    let patterns: [HighlightPattern] = [
         HighlightPattern( // Idea
             pattern: "\\bidea[a-zA-Z]*",
             backgroundColor: UIColor { traitCollection in
@@ -47,7 +47,6 @@ class TextHighlightManager: NSLayoutManager {
         )
     ]
 
-    private var updateWorkItem: DispatchWorkItem?
     private var isProcessing = false
 
     override func processEditing(for textStorage: NSTextStorage,
@@ -87,9 +86,5 @@ class TextHighlightManager: NSLayoutManager {
         
         textStorage.endEditing()
         isProcessing = false
-    }
-    
-    deinit {
-        updateWorkItem?.cancel()
     }
 }

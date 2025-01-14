@@ -22,6 +22,7 @@ struct  UITextViewWrapper: UIViewRepresentable {
         // Create text view with a custom layout manager
         let layoutManager = TextHighlightManager()
         let textContainer = NSTextContainer(size: .zero)
+        textContainer.widthTracksTextView = true
         let textStorage = NSTextStorage()
         
         textStorage.addLayoutManager(layoutManager)
