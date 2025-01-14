@@ -29,6 +29,23 @@
 		15D9C2A22D350BFC0013E9A3 /* CacheUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CacheUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1555310D2D36D03900E6F2FC /* Exceptions for "CacheTests" folder in "CacheTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				UITests.swift,
+			);
+			target = 15D9C2972D350BFC0013E9A3 /* CacheTests */;
+		};
+		1555310E2D36D03900E6F2FC /* Exceptions for "CacheTests" folder in "CacheUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				UITests.swift,
+			);
+			target = 15D9C2A12D350BFC0013E9A3 /* CacheUITests */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		15D9C2882D350BFB0013E9A3 /* Cache */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -37,12 +54,11 @@
 		};
 		15D9C29B2D350BFC0013E9A3 /* CacheTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1555310D2D36D03900E6F2FC /* Exceptions for "CacheTests" folder in "CacheTests" target */,
+				1555310E2D36D03900E6F2FC /* Exceptions for "CacheTests" folder in "CacheUITests" target */,
+			);
 			path = CacheTests;
-			sourceTree = "<group>";
-		};
-		15D9C2A52D350BFC0013E9A3 /* CacheUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = CacheUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -77,7 +93,6 @@
 			children = (
 				15D9C2882D350BFB0013E9A3 /* Cache */,
 				15D9C29B2D350BFC0013E9A3 /* CacheTests */,
-				15D9C2A52D350BFC0013E9A3 /* CacheUITests */,
 				15D9C2872D350BFB0013E9A3 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -152,9 +167,6 @@
 			);
 			dependencies = (
 				15D9C2A42D350BFC0013E9A3 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				15D9C2A52D350BFC0013E9A3 /* CacheUITests */,
 			);
 			name = CacheUITests;
 			packageProductDependencies = (

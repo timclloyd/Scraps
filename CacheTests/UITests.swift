@@ -1,13 +1,13 @@
 //
-//  CacheUITests.swift
-//  CacheUITests
+//  UITests.swift
+//  CacheTests
 //
 //  Created by Tim Lloyd on 2025-01-13.
 //
 
 import XCTest
 
-final class CacheUITests: XCTestCase {
+final class UITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
