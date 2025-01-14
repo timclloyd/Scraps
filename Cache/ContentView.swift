@@ -211,14 +211,16 @@ class ShakeableTextView: UITextView {
         return true
     }
     
-    override func resignFirstResponder() -> Bool {
-        // Keep first responder status for shake detection, but hide keyboard
-        self.inputView = UIView()
-        return false
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesBegan(touches, with: event)
+        if !isFirstResponder {
+            becomeFirstResponder()
+        }
     }
     
-    override func becomeFirstResponder() -> Bool {
+    override func resignFirstResponder() -> Bool {
+        // Allow normal resignation of first responder status
         self.inputView = nil
-        return super.becomeFirstResponder()
+        return super.resignFirstResponder()
     }
 }

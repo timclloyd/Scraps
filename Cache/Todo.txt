@@ -12,6 +12,7 @@
 - [/] Fine tune colour scheme
 - [x] Add a Release scheme with debugging disabled
 - [ ] Refactor so it’s easier to read 
+- [x] Bug: kb doesn’t show except on app launch e.g. after clearing all text
 
 # Ideas
 
