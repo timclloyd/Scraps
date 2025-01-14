@@ -56,60 +56,37 @@ class TextHighlightManager: NSLayoutManager {
                                changeInLength delta: Int,
                                invalidatedRange invalidatedCharRange: NSRange) {
         super.processEditing(for: textStorage,
-                           edited: editMask,
-                           range: newCharRange,
-                           changeInLength: delta,
-                           invalidatedRange: invalidatedCharRange)
+                            edited: editMask,
+                            range: newCharRange,
+                            changeInLength: delta,
+                            invalidatedRange: invalidatedCharRange)
         
         // Skip if we're already processing
         guard !isProcessing else { return }
         
-        // Cancel any pending updates
-        updateWorkItem?.cancel()
+        isProcessing = true
         
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-            
-            // Create a snapshot of the text to process
-            let text = textStorage.string
-            let entireRange = NSRange(location: 0, length: text.count)
-            
-            // Find matches on background thread
-            var matches: [(NSRange, UIColor)] = []
-            for pattern in self.patterns {
-                let patternMatches = pattern.regex.matches(in: text, options: [], range: entireRange)
-                matches.append(contentsOf: patternMatches.map { ($0.range, pattern.backgroundColor) })
-            }
-            
-            // Apply matches on main thread
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                
-                self.isProcessing = true
-                
-                // Begin editing session
-                textStorage.beginEditing()
-                
-                // Clear existing highlights
-                textStorage.removeAttribute(.backgroundColor, range: entireRange)
-                
-                // Apply new highlights
-                for (range, color) in matches {
-                    // Verify range is still valid
-                    if range.location + range.length <= textStorage.length {
-                        textStorage.addAttribute(.backgroundColor, value: color, range: range)
-                    }
+        let text = textStorage.string
+        let entireRange = NSRange(location: 0, length: text.count)
+        
+        // Begin editing session
+        textStorage.beginEditing()
+        
+        // Clear existing highlights
+        textStorage.removeAttribute(.backgroundColor, range: entireRange)
+        
+        // Apply new highlights immediately
+        for pattern in patterns {
+            let matches = pattern.regex.matches(in: text, options: [], range: entireRange)
+            for match in matches {
+                if match.range.location + match.range.length <= textStorage.length {
+                    textStorage.addAttribute(.backgroundColor, value: pattern.backgroundColor, range: match.range)
                 }
-                
-                // End editing session
-                textStorage.endEditing()
-                
-                self.isProcessing = false
             }
         }
         
-        updateWorkItem = workItem
-        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
+        textStorage.endEditing()
+        isProcessing = false
     }
     
     deinit {
