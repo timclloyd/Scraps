@@ -10,12 +10,17 @@
 - [x] Fine tune the typography - line height, paragraph height
 - [x] Design app icon - light and dark
 - [/] Fine tune colour scheme
+	- [ ] Accent colours... gut feel is I want something warmer?
+	- [ ] Tint the text slightly with accent colour?
 - [x] Add a Release scheme with debugging disabled
 - [/] Refactor so it’s easier to read 
+- [/] Add tests
 - [x] Bug: kb doesn’t show except on app launch e.g. after clearing all text
 - [/] Rename app to Ideas ???
 - [-] Update the bottom of the TextView while kb is sliding down to prevent the text from appearing cut off during the transition = change to .none so kb is always visible
 - [x] Add haptic feedback to shake gesture
+- [ ] It seems to be preventing display sleep - stop that
+- [ ] Make the initial launch to text input faster - currently slow due to kb show animation
 
 # Ideas
 

@@ -11,9 +11,13 @@ class TextLineManager: ObservableObject {
     @Published var lines: [TextLineModel] = []
     private let saveURL: URL
     
-    init() {
-        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        saveURL = documentsDirectory.appendingPathComponent("notes.json")
+    init(saveURL: URL? = nil) {
+        if let url = saveURL {
+            self.saveURL = url
+        } else {
+            let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            self.saveURL = documentsDirectory.appendingPathComponent("notes.json")
+        }
         loadData()
     }
     
