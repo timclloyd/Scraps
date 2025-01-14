@@ -128,43 +128,101 @@ struct TextEditorView: UIViewRepresentable {
 }
 
 class HighlightLayoutManager: NSLayoutManager {
-    private var cachedMatches: [(range: NSRange, rects: [CGRect])] = []
-    private var lastProcessedText: String = ""
-    private var updateWorkItem: DispatchWorkItem?
-    
-    let highlightColor = UIColor { traitCollection in
-        switch traitCollection.userInterfaceStyle {
-        case .dark:
-            return UIColor(hue: 205 / 360, saturation: 0.8, brightness: 1.0, alpha: 0.58)
-        default:
-            return UIColor(hue: 205 / 360, saturation: 0.8, brightness: 1.0, alpha: 0.42)
+    struct HighlightPattern {
+        let pattern: String
+        let regex: NSRegularExpression  // Pre-compile regex
+        let color: UIColor
+        
+        init(pattern: String, color: UIColor) {
+            self.pattern = pattern
+            self.regex = try! NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+            self.color = color
         }
     }
     
+    // Cache patterns at initialization time
+    private lazy var patterns: [HighlightPattern] = [
+        HighlightPattern( // Idea
+            pattern: "\\bidea[a-zA-Z]*",
+            color: UIColor { traitCollection in
+                switch traitCollection.userInterfaceStyle {
+                case .dark:
+                    return UIColor(hue: 205/360, saturation: 0.8, brightness: 1.0, alpha: 0.58)
+                default:
+                    return UIColor(hue: 205/360, saturation: 0.8, brightness: 1.0, alpha: 0.42)
+                }
+            }
+        ),
+        HighlightPattern( // Fun
+            pattern: "\\bfun\\b",
+            color: UIColor { traitCollection in
+                switch traitCollection.userInterfaceStyle {
+                case .dark:
+                    return UIColor(hue: 142/360, saturation: 0.6, brightness: 1.0, alpha: 0.5)
+                default:
+                    return UIColor(hue: 142/360, saturation: 0.6, brightness: 1.0, alpha: 0.5)
+                }
+            }
+        )
+    ]
+    
+    private var cachedMatches: [(range: NSRange, color: UIColor, rects: [CGRect])] = []
+    private var lastProcessedText: String = ""
+    private var updateWorkItem: DispatchWorkItem?
+    
+    // Add a debounce timer to prevent too frequent updates
+    private var debounceTimer: Timer?
+    private let debounceInterval: TimeInterval = 0.1
+    
     func scheduleMatchUpdate(for text: String) {
-        // Cancel any pending updates
+        // Cancel existing timer
+        debounceTimer?.invalidate()
         updateWorkItem?.cancel()
         
         // Skip if text hasn't changed
         guard text != lastProcessedText else { return }
+        
+        // Create new timer
+        debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { [weak self] _ in
+            self?.performMatchUpdate(for: text)
+        }
+    }
+    
+    private func performMatchUpdate(for text: String) {
         lastProcessedText = text
         
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             
-            // Find matches in background
-            let pattern = "\\bidea[a-zA-Z]*"
-            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return }
+            // Pre-allocate array capacity
+            var newMatches = [(range: NSRange, color: UIColor, rects: [CGRect])]()
+            newMatches.reserveCapacity(10)  // Adjust based on expected number of matches
             
-            let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: text.count))
-            let newMatches = matches.map { match in
-                (range: match.range, rects: [CGRect]()) // Empty rects to be filled during drawing
+            let textRange = NSRange(location: 0, length: text.count)
+            
+            // Process each pattern
+            for pattern in self.patterns {
+                let matches = pattern.regex.matches(in: text, options: [], range: textRange)
+                newMatches.append(contentsOf: matches.map { match in
+                    (range: match.range, color: pattern.color, rects: [CGRect]())
+                })
             }
             
             // Update cache and invalidate display on main thread
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
                 self.cachedMatches = newMatches
-                self.invalidateDisplay(forGlyphRange: NSRange(location: 0, length: self.numberOfGlyphs))
+                // Only invalidate the changed regions
+                let union = newMatches.reduce(NSRange(location: NSNotFound, length: 0)) { result, match in
+                    if result.location == NSNotFound {
+                        return match.range
+                    }
+                    return NSUnionRange(result, match.range)
+                }
+                if union.location != NSNotFound {
+                    let glyphRange = self.glyphRange(forCharacterRange: union, actualCharacterRange: nil)
+                    self.invalidateDisplay(forGlyphRange: glyphRange)
+                }
             }
         }
         
@@ -172,26 +230,37 @@ class HighlightLayoutManager: NSLayoutManager {
         DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
     
+    // Memory management
+    deinit {
+        updateWorkItem?.cancel()
+        debounceTimer?.invalidate()
+    }
+    
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
         
-        guard let textContainer = textContainers.first else { return }
+        guard let textContainer = textContainers.first,
+              !cachedMatches.isEmpty else { return }
         
-        // Draw highlights for cached matches that intersect with the current glyph range
+        // Create path once and reuse
+        let path = UIBezierPath()
+        path.lineWidth = 0
+        
         for match in cachedMatches {
             let matchGlyphRange = glyphRange(forCharacterRange: match.range, actualCharacterRange: nil)
             
-            // Check if this match intersects with the glyphs we're supposed to show
             if NSIntersectionRange(matchGlyphRange, glyphsToShow).length > 0 {
-                // Get rects for this range of text
                 enumerateEnclosingRects(forGlyphRange: matchGlyphRange,
                                       withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0),
                                       in: textContainer) { (rect, stop) in
-                    // Draw highlight
                     let highlightRect = rect.offsetBy(dx: origin.x, dy: origin.y)
                     let paddedRect = highlightRect.insetBy(dx: -1, dy: 0)
-                    self.highlightColor.setFill()
-                    UIBezierPath(roundedRect: paddedRect, cornerRadius: 3).fill()
+                    path.removeAllPoints()
+                    // Use the rounded rect initializer and then append that path
+                    let roundedRectPath = UIBezierPath(roundedRect: paddedRect, cornerRadius: 3)
+                    path.append(roundedRectPath)
+                    match.color.setFill()
+                    path.fill()
                 }
             }
         }
