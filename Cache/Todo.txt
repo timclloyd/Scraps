@@ -6,7 +6,7 @@
 - [/] Add tests
 - [/] Rename app to Ideas ???
 - [ ] Make the initial launch to text input faster - currently slow due to kb show animation
-- [ ] Try highlighting URLs and making them tappable
+- [x] Try highlighting URLs and making them tappable
 - [ ] Design App Store assets and text
 - [ ] Deploy to the App Store 
 
