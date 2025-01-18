@@ -11,7 +11,6 @@ import SwiftUI
 struct MainView: View {
     @StateObject private var document = TextLineManager()
     @AppStorage("currentText") private var currentText = ""
-    @FocusState private var isFocused: Bool
     @State private var showingDeleteAlert = false
     
     var textSize: CGFloat = 17
@@ -19,44 +18,39 @@ struct MainView: View {
     var verticalPadding: CGFloat = 48
     
     var body: some View {
-        VStack(spacing: 0) {
-             UITextViewWrapper(
-                text: $currentText,
-                font: UIFont(name: "iAWriterQuattroS-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
-                padding: EdgeInsets(
-                    top: textSize,
-                    leading: horizontalPadding,
-                    bottom: verticalPadding,
-                    trailing: horizontalPadding
-                ),
-                onShake: {
-                    // Show delete confirmation when shake is detected
-                    showingDeleteAlert = true
-                }
-            )
-            .focused($isFocused)
-            .onAppear {
-                isFocused = true
+        GradientTextWrapper(
+            text: $currentText,
+            font: UIFont(name: "iAWriterQuattroS-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+            padding: EdgeInsets(
+                top: textSize,
+                leading: horizontalPadding,
+                bottom: verticalPadding,
+                trailing: horizontalPadding
+            ),
+            onShake: {
+                showingDeleteAlert = true
+            },
+            topFadeHeight: textSize * 2,
+            bottomFadeHeight: textSize * 2
+        )
+        .onChange(of: currentText) { oldValue, newValue in
+            if !newValue.isEmpty {
+                document.addLine(newValue)
             }
-            .onChange(of: currentText) { oldValue, newValue in
-                if !newValue.isEmpty {
-                    document.addLine(newValue)
-                }
+        }
+        .alert("Clear the cache?", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) {
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
             }
-            .alert("Clear the cache?", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) {
-                    let generator = UINotificationFeedbackGenerator()
-                    generator.notificationOccurred(.success)
-                }
-                Button("Clear", role: .destructive) {
-                    currentText = ""
-                    document.lines.removeAll()
-                    let generator = UINotificationFeedbackGenerator()
-                    generator.notificationOccurred(.success)
-                }
-            } message: {
-                Text("It's good to forget things sometimes")
+            Button("Clear", role: .destructive) {
+                currentText = ""
+                document.lines.removeAll()
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
             }
+        } message: {
+            Text("It's good to forget things sometimes")
         }
     }
 }

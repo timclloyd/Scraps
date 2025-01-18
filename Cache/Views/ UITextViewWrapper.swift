@@ -12,14 +12,14 @@
 
 import SwiftUI
 
-struct  UITextViewWrapper: UIViewRepresentable {
+struct UITextViewWrapper: UIViewRepresentable {
     @Binding var text: String
     var font: UIFont
     var padding: EdgeInsets
     var onShake: () -> Void
+    var onScroll: ((UIScrollView) -> Void)?
 
     func makeUIView(context: Context) -> CustomTextView {
-        // Create text view with a custom layout manager
         let layoutManager = TextHighlightManager()
         let textContainer = NSTextContainer(size: .zero)
         textContainer.widthTracksTextView = true
@@ -58,14 +58,18 @@ struct  UITextViewWrapper: UIViewRepresentable {
     }
 
     class Coordinator: NSObject, UITextViewDelegate {
-        var parent:  UITextViewWrapper
+        var parent: UITextViewWrapper
 
-        init(_ parent:  UITextViewWrapper) {
+        init(_ parent: UITextViewWrapper) {
             self.parent = parent
         }
 
         func textViewDidChange(_ textView: UITextView) {
             parent.text = textView.text
+        }
+        
+        func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            parent.onScroll?(scrollView)
         }
     }
 }
