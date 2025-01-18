@@ -31,7 +31,7 @@ struct MainView: View {
                 showingDeleteAlert = true
             },
             topFadeHeight: textSize * 2,
-            bottomFadeHeight: textSize * 2
+            bottomFadeHeight: textSize * 3
         )
         .onChange(of: currentText) { oldValue, newValue in
             if !newValue.isEmpty {

@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		152937B72D3C47CD00F235A2 /* SmoothGradient in Frameworks */ = {isa = PBXBuildFile; productRef = 152937B62D3C47CD00F235A2 /* SmoothGradient */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		15D9C2992D350BFC0013E9A3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -68,6 +72,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				152937B72D3C47CD00F235A2 /* SmoothGradient in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -127,6 +132,7 @@
 			);
 			name = Cache;
 			packageProductDependencies = (
+				152937B62D3C47CD00F235A2 /* SmoothGradient */,
 			);
 			productName = Cache;
 			productReference = 15D9C2862D350BFB0013E9A3 /* Cache.app */;
@@ -207,6 +213,9 @@
 			);
 			mainGroup = 15D9C27D2D350BFB0013E9A3;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				152937B52D3C47CD00F235A2 /* XCRemoteSwiftPackageReference "SmoothGradient" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 15D9C2872D350BFB0013E9A3 /* Products */;
 			projectDirPath = "";
@@ -572,6 +581,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		152937B52D3C47CD00F235A2 /* XCRemoteSwiftPackageReference "SmoothGradient" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/raymondjavaxx/SmoothGradient.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		152937B62D3C47CD00F235A2 /* SmoothGradient */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 152937B52D3C47CD00F235A2 /* XCRemoteSwiftPackageReference "SmoothGradient" */;
+			productName = SmoothGradient;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 15D9C27E2D350BFB0013E9A3 /* Project object */;
 }

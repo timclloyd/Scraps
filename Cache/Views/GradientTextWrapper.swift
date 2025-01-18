@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SmoothGradient
 
 struct GradientTextWrapper: View {
     @Binding var text: String
@@ -34,11 +35,13 @@ struct GradientTextWrapper: View {
             }
             
             VStack(spacing: 0) {
-                // Top gradient that fades out when scrolled to top
-                LinearGradient(
-                    colors: [Color(.systemBackground), Color(.systemBackground).opacity(0)],
+                // Top gradient overlay
+                SmoothLinearGradient(
+                    from: Color(uiColor: .systemBackground).opacity(0.9),
+                    to: Color(uiColor: .systemBackground).opacity(0),
                     startPoint: .top,
-                    endPoint: .bottom
+                    endPoint: .bottom,
+                    curve: .easeOut
                 )
                 .frame(height: topFadeHeight)
                 .opacity(isScrolledToTop ? 0 : 1)
@@ -46,10 +49,13 @@ struct GradientTextWrapper: View {
                 
                 Spacer()
                 
-                LinearGradient(
-                    colors: [Color(.systemBackground).opacity(0), Color(.systemBackground)],
+                // Bottom gradient overlay
+                SmoothLinearGradient(
+                    from: Color(uiColor: .systemBackground).opacity(0),
+                    to: Color(uiColor: .systemBackground).opacity(0.9),
                     startPoint: .top,
-                    endPoint: .bottom
+                    endPoint: .bottom,
+                    curve: .easeIn
                 )
                 .frame(height: bottomFadeHeight)
             }
