@@ -25,18 +25,14 @@ class CustomTextView: UITextView {
         isSelectable = true
         isEditable = true
         
-        // Configure custom link appearance
+        // Customise link appearance
         linkTextAttributes = [
-            .foregroundColor: UIColor { traitCollection in
-                switch traitCollection.userInterfaceStyle {
-                case .dark:
-                    return .systemGray3
-                default:
-                    return .systemGray3
-                }
-            },
+            .foregroundColor: ThemeColors.linkColor,
             .underlineStyle: NSUnderlineStyle.single.rawValue
         ]
+        
+        // Set cursor color
+        tintColor = ThemeColors.dynamicCursorColor(for: UITraitCollection.current)
     }
     
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
