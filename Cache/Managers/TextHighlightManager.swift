@@ -7,7 +7,9 @@
 
 import SwiftUI
 
-import SwiftUI
+extension NSAttributedString.Key {
+    static let customURL = NSAttributedString.Key("customURL")
+}
 
 class TextHighlightManager: NSLayoutManager {
     struct HighlightPattern {
@@ -48,6 +50,7 @@ class TextHighlightManager: NSLayoutManager {
     ]
 
     private var isProcessing = false
+    private let urlDetector = try! NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
 
     override func processEditing(for textStorage: NSTextStorage,
                                edited editMask: NSTextStorage.EditActions,
@@ -60,21 +63,20 @@ class TextHighlightManager: NSLayoutManager {
                             changeInLength: delta,
                             invalidatedRange: invalidatedCharRange)
         
-        // Skip if we're already processing
         guard !isProcessing else { return }
-        
         isProcessing = true
         
         let text = textStorage.string
         let entireRange = NSRange(location: 0, length: text.count)
         
-        // Begin editing session
         textStorage.beginEditing()
         
-        // Clear existing highlights
+        // Clear existing attributes but keep foreground color
         textStorage.removeAttribute(.backgroundColor, range: entireRange)
+        textStorage.removeAttribute(.link, range: entireRange)
+        textStorage.removeAttribute(.underlineStyle, range: entireRange)
         
-        // Apply new highlights immediately
+        // Apply pattern highlights
         for pattern in patterns {
             let matches = pattern.regex.matches(in: text, options: [], range: entireRange)
             for match in matches {
@@ -82,6 +84,15 @@ class TextHighlightManager: NSLayoutManager {
                     textStorage.addAttribute(.backgroundColor, value: pattern.backgroundColor, range: match.range)
                 }
             }
+        }
+        
+        // Detect and style URLs - just add the link attribute
+        let urlMatches = urlDetector.matches(in: text, options: [], range: entireRange)
+        for match in urlMatches {
+            guard match.range.location + match.range.length <= textStorage.length,
+                  let url = match.url else { continue }
+            
+            textStorage.addAttribute(.link, value: url, range: match.range)
         }
         
         textStorage.endEditing()

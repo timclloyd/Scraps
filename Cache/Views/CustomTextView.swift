@@ -11,9 +11,36 @@ import SwiftUI
 class CustomTextView: UITextView {
     var onShake: (() -> Void)?
     
+    override init(frame: CGRect, textContainer: NSTextContainer?) {
+        super.init(frame: frame, textContainer: textContainer)
+        setupTextView()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupTextView()
+    }
+    
+    private func setupTextView() {
+        isSelectable = true
+        isEditable = true
+        
+        // Configure custom link appearance
+        linkTextAttributes = [
+            .foregroundColor: UIColor { traitCollection in
+                switch traitCollection.userInterfaceStyle {
+                case .dark:
+                    return .systemGray3
+                default:
+                    return .systemGray3
+                }
+            },
+            .underlineStyle: NSUnderlineStyle.single.rawValue
+        ]
+    }
+    
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
         if motion == .motionShake {
-            // Generate haptic feedback
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.warning)
             onShake?()
@@ -32,7 +59,6 @@ class CustomTextView: UITextView {
     }
     
     override func resignFirstResponder() -> Bool {
-        // Allow normal resignation of first responder status
         self.inputView = nil
         return super.resignFirstResponder()
     }
