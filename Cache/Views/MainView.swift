@@ -13,14 +13,14 @@ struct MainView: View {
     @AppStorage("currentText") private var currentText = ""
     @State private var showingDeleteAlert = false
     
-    var textSize: CGFloat = 17
+    var textSize: CGFloat = 16
     var horizontalPadding: CGFloat = 8
     var verticalPadding: CGFloat = 48
     
     var body: some View {
         GradientTextWrapper(
             text: $currentText,
-            font: UIFont(name: "iAWriterQuattroS-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+            font: UIFont(name: "JetBrainsMono-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
             padding: EdgeInsets(
                 top: textSize,
                 leading: horizontalPadding,
