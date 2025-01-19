@@ -9,17 +9,17 @@ import SwiftUI
 
 enum ThemeColors {
     static let highlightColorLight = UIColor(
-        hue: 23/360,
-        saturation: 0.8,
+        hue: 24/360,
+        saturation: 0.17,
         brightness: 1.0,
-        alpha: 0.42
+        alpha: 1.0
     )
     
     static let highlightColorDark = UIColor(
         hue: 23/360,
         saturation: 0.6,
-        brightness: 1.0,
-        alpha: 0.52
+        brightness: 0.35,
+        alpha: 1.0
     )
     
     static let cursorColorLight = UIColor(
