@@ -27,12 +27,12 @@ class CustomTextView: UITextView {
         
         // Customise link appearance
         linkTextAttributes = [
-            .foregroundColor: ThemeColors.linkColor,
+            .foregroundColor: Theme.linkColor,
             .underlineStyle: NSUnderlineStyle.single.rawValue
         ]
         
         // Set cursor color
-        tintColor = ThemeColors.dynamicCursorColor(for: UITraitCollection.current)
+        tintColor = Theme.dynamicCursorColor(for: UITraitCollection.current)
     }
     
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {

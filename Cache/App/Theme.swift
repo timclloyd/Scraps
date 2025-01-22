@@ -1,5 +1,5 @@
 //
-//  ThemeColors.swift
+//  Theme.swift
 //  Cache
 //
 //  Created by Tim Lloyd on 2025-01-18.
@@ -7,7 +7,9 @@
 
 import SwiftUI
 
-enum ThemeColors {
+enum Theme {
+    static let font = "RobotoMono-Regular"
+    
     static let highlightColorLight = UIColor(
         hue: 24/360,
         saturation: 0.17,

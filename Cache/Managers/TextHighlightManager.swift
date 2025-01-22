@@ -27,11 +27,11 @@ class TextHighlightManager: NSLayoutManager {
     let patterns: [HighlightPattern] = [
         HighlightPattern( // Idea
             pattern: "\\bidea[a-zA-Z]*",
-            backgroundColor: ThemeColors.dynamicHighlightColor(for: UITraitCollection.current)
+            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         ),
         HighlightPattern( // Fun
             pattern: "\\bfun\\b",
-            backgroundColor: ThemeColors.dynamicHighlightColor(for: UITraitCollection.current)
+            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         )
     ]
 
