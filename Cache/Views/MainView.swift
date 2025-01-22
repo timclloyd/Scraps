@@ -20,7 +20,7 @@ struct MainView: View {
     var body: some View {
         GradientTextWrapper(
             text: $currentText,
-            font: UIFont(name: "JetBrainsMono-Regular", size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+            font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
             padding: EdgeInsets(
                 top: textSize,
                 leading: horizontalPadding,
