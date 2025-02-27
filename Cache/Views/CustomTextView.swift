@@ -33,6 +33,11 @@ class CustomTextView: UITextView {
         
         // Set cursor color
         tintColor = Theme.dynamicCursorColor(for: UITraitCollection.current)
+        
+        // Disable red underlines but keep suggestions while typing
+        spellCheckingType = .no
+        autocorrectionType = .yes
+
     }
     
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
