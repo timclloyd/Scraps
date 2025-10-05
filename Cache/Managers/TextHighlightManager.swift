@@ -16,10 +16,13 @@ class TextHighlightManager: NSLayoutManager {
         let pattern: String
         let regex: NSRegularExpression
         let backgroundColor: UIColor
-        
+
         init(pattern: String, backgroundColor: UIColor) {
             self.pattern = pattern
-            self.regex = try! NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+                fatalError("Invalid regex pattern: \(pattern)")
+            }
+            self.regex = regex
             self.backgroundColor = backgroundColor
         }
     }
@@ -32,11 +35,36 @@ class TextHighlightManager: NSLayoutManager {
         HighlightPattern( // Fun
             pattern: "\\bfun\\b",
             backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+        ),
+        HighlightPattern( // Todo
+            pattern: "\\btodo\\b",
+            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+        ),
+        HighlightPattern( // Remember
+            pattern: "\\bremember\\b",
+            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+        ),
+        HighlightPattern( // Important
+            pattern: "\\bimportant\\b",
+            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+        ),
+        HighlightPattern( // Interesting
+            pattern: "\\binteresting\\b",
+            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+        ),
+        HighlightPattern( // Later
+            pattern: "\\blater\\b",
+            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         )
     ]
 
     private var isProcessing = false
-    private let urlDetector = try! NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    private let urlDetector: NSDataDetector = {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+            fatalError("Failed to create URL detector")
+        }
+        return detector
+    }()
 
     override func processEditing(for textStorage: NSTextStorage,
                                edited editMask: NSTextStorage.EditActions,
