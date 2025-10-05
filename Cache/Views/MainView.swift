@@ -9,7 +9,6 @@
 import SwiftUI
 
 struct MainView: View {
-    @StateObject private var document = TextLineManager()
     @AppStorage("currentText") private var currentText = ""
     @State private var showingDeleteAlert = false
     
@@ -33,11 +32,6 @@ struct MainView: View {
             topFadeHeight: textSize * 2,
             bottomFadeHeight: textSize * 3
         )
-        .onChange(of: currentText) { oldValue, newValue in
-            if !newValue.isEmpty {
-                document.addLine(newValue)
-            }
-        }
         .alert("Clear the cache?", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) {
                 let generator = UINotificationFeedbackGenerator()
@@ -45,7 +39,6 @@ struct MainView: View {
             }
             Button("Clear", role: .destructive) {
                 currentText = ""
-                document.lines.removeAll()
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.success)
             }
