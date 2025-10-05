@@ -1,4 +1,4 @@
-# Cache
+# Scraps
 
 A super fast, minimal iOS app for capturing thoughts and ideas in plain text.
 
@@ -35,6 +35,7 @@ Built with SwiftUI and UIKit for iOS.
 
 ## Architecture
 
-- MVVM pattern with `TextLineManager` as the main manager
+- SwiftUI with custom UIKit components where needed
 - Custom UITextView wrapper for enhanced text editing
 - Custom NSLayoutManager for real-time syntax highlighting
+- Text persistence via @AppStorage

@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct NotesApp: App {
+struct ScrapsApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
