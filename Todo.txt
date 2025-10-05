@@ -1,5 +1,18 @@
 # Todo
 
+## Performance Optimization (CRITICAL - Causes typing lag)
+### Phase 1: Fix Critical Disk I/O Issues
+- [ ] Add debouncing to file saves (only save 500ms after user stops typing)
+- [ ] Make file writes async (move to background queue)
+- [ ] Fix onChange logic bug - only add lines on actual newlines, not every character
+- [ ] Add Task cancellation for pending saves when new edits come in
+### Phase 2: Optimize Text Processing
+- [ ] Smart regex processing - only process changed paragraph/region instead of entire document
+- [ ] Cache highlight patterns - avoid recreating UIColors on every init
+### Phase 3: Add Performance Monitoring
+- [ ] Add Instruments profiling to measure before/after
+- [ ] Add frame rate overlay to verify 60fps typing
+
 ## Code Quality
 - [ ] Fix struct name in CacheApp.swift: rename NotesApp to CacheApp
 - [ ] Fix filename: remove leading space from " UITextViewWrapper.swift"
@@ -7,7 +20,6 @@
 - [ ] Add logging for data load failures in TextLineManager.swift
 - [ ] Add tests for highlight/theme logic
 - [ ] Implement UI tests (UITests.swift is currently empty)
-- [ ] Optimize text highlighting for large documents (currently re-processes entire document on every edit)
 
 ## Features & Polish
 - [/] Fine tune colour scheme
