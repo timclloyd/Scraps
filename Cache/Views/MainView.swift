@@ -33,7 +33,7 @@ struct MainView: View {
             bottomFadeHeight: textSize * 3
         )
         .ignoresSafeArea(edges: .top)
-        .alert("Clear the cache?", isPresented: $showingDeleteAlert) {
+        .alert("Discard all scraps?", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) {
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.success)
