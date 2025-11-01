@@ -7,10 +7,6 @@
 
 import SwiftUI
 
-extension NSAttributedString.Key {
-    static let customURL = NSAttributedString.Key("customURL")
-}
-
 class TextHighlightManager: NSLayoutManager {
     struct HighlightPattern {
         let pattern: String
