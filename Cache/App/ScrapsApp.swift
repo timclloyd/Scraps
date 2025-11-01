@@ -13,6 +13,7 @@ struct ScrapsApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
+                .statusBarHidden()
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
                     UserDefaults.standard.synchronize()
                 }

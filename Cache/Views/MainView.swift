@@ -21,7 +21,7 @@ struct MainView: View {
             text: $currentText,
             font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
             padding: EdgeInsets(
-                top: textSize,
+                top: 0,
                 leading: horizontalPadding,
                 bottom: verticalPadding,
                 trailing: horizontalPadding
@@ -29,9 +29,10 @@ struct MainView: View {
             onShake: {
                 showingDeleteAlert = true
             },
-            topFadeHeight: textSize * 2,
+            topFadeHeight: 0,
             bottomFadeHeight: textSize * 3
         )
+        .ignoresSafeArea(edges: .top)
         .alert("Clear the cache?", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) {
                 let generator = UINotificationFeedbackGenerator()
