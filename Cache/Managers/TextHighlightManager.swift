@@ -17,10 +17,10 @@ class TextHighlightManager: NSLayoutManager {
         let regex: NSRegularExpression
         let backgroundColor: UIColor
 
-        init(pattern: String, backgroundColor: UIColor) {
+        init?(pattern: String, backgroundColor: UIColor) {
             self.pattern = pattern
             guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
-                fatalError("Invalid regex pattern: \(pattern)")
+                return nil
             }
             self.regex = regex
             self.backgroundColor = backgroundColor
@@ -56,14 +56,11 @@ class TextHighlightManager: NSLayoutManager {
             pattern: "\\blater\\b",
             backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         )
-    ]
+    ].compactMap { $0 }
 
     private var isProcessing = false
-    private let urlDetector: NSDataDetector = {
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
-            fatalError("Failed to create URL detector")
-        }
-        return detector
+    private let urlDetector: NSDataDetector? = {
+        return try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
     }()
 
     override func processEditing(for textStorage: NSTextStorage,
@@ -101,12 +98,14 @@ class TextHighlightManager: NSLayoutManager {
         }
 
         // Detect and style URLs - just add the link attribute
-        let urlMatches = urlDetector.matches(in: text, options: [], range: processRange)
-        for match in urlMatches {
-            guard match.range.location + match.range.length <= textStorage.length,
-                  let url = match.url else { continue }
-            
-            textStorage.addAttribute(.link, value: url, range: match.range)
+        if let urlDetector = urlDetector {
+            let urlMatches = urlDetector.matches(in: text, options: [], range: processRange)
+            for match in urlMatches {
+                guard match.range.location + match.range.length <= textStorage.length,
+                      let url = match.url else { continue }
+
+                textStorage.addAttribute(.link, value: url, range: match.range)
+            }
         }
         
         textStorage.endEditing()
