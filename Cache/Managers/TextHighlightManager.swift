@@ -79,29 +79,29 @@ class TextHighlightManager: NSLayoutManager {
         
         guard !isProcessing else { return }
         isProcessing = true
-        
+
         let text = textStorage.string
-        let entireRange = NSRange(location: 0, length: text.count)
-        
+        let processRange = (text as NSString).lineRange(for: newCharRange)
+
         textStorage.beginEditing()
-        
+
         // Clear existing attributes but keep foreground color
-        textStorage.removeAttribute(.backgroundColor, range: entireRange)
-        textStorage.removeAttribute(.link, range: entireRange)
-        textStorage.removeAttribute(.underlineStyle, range: entireRange)
-        
+        textStorage.removeAttribute(.backgroundColor, range: processRange)
+        textStorage.removeAttribute(.link, range: processRange)
+        textStorage.removeAttribute(.underlineStyle, range: processRange)
+
         // Apply pattern highlights
         for pattern in patterns {
-            let matches = pattern.regex.matches(in: text, options: [], range: entireRange)
+            let matches = pattern.regex.matches(in: text, options: [], range: processRange)
             for match in matches {
                 if match.range.location + match.range.length <= textStorage.length {
                     textStorage.addAttribute(.backgroundColor, value: pattern.backgroundColor, range: match.range)
                 }
             }
         }
-        
+
         // Detect and style URLs - just add the link attribute
-        let urlMatches = urlDetector.matches(in: text, options: [], range: entireRange)
+        let urlMatches = urlDetector.matches(in: text, options: [], range: processRange)
         for match in urlMatches {
             guard match.range.location + match.range.length <= textStorage.length,
                   let url = match.url else { continue }
