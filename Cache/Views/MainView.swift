@@ -11,10 +11,10 @@ import SwiftUI
 struct MainView: View {
     @AppStorage("currentText") private var currentText = ""
     @State private var showingDeleteAlert = false
-    
-    var textSize: CGFloat = 16
-    var horizontalPadding: CGFloat = 8
-    var verticalPadding: CGFloat = 48
+
+    var textSize: CGFloat = Theme.textSize
+    var horizontalPadding: CGFloat = Theme.horizontalPadding
+    var verticalPadding: CGFloat = Theme.verticalPadding
     
     var body: some View {
         GradientTextWrapper(

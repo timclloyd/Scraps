@@ -9,7 +9,12 @@ import SwiftUI
 
 enum Theme {
     static let font = "RobotoMono-Regular"
-    
+
+    // Layout
+    static let textSize: CGFloat = 16
+    static let horizontalPadding: CGFloat = 8
+    static let verticalPadding: CGFloat = 48
+
     static let highlightColorLight = UIColor(
         hue: 24/360,
         saturation: 0.17,
