@@ -26,7 +26,12 @@ struct GradientTextWrapper: View {
                 padding: padding,
                 onShake: onShake,
                 onScroll: { scrollView in
-                    isScrolledToTop = scrollView.contentOffset.y <= 0
+                    let newValue = scrollView.contentOffset.y <= 0
+                    if isScrolledToTop != newValue {
+                        DispatchQueue.main.async {
+                            isScrolledToTop = newValue
+                        }
+                    }
                 }
             )
             .focused($isFocused)
@@ -44,7 +49,7 @@ struct GradientTextWrapper: View {
                     curve: .easeOut
                 )
                 .frame(height: topFadeHeight)
-                .opacity(isScrolledToTop ? 0 : 1)
+                .opacity(Theme.isIPadOrMac ? 1 : (isScrolledToTop ? 0 : 1))
                 .animation(.easeOut(duration: 0.2), value: isScrolledToTop)
                 
                 Spacer()

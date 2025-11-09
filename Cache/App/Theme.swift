@@ -10,6 +10,27 @@ import SwiftUI
 enum Theme {
     static let font = "RobotoMono-Regular"
 
+    // Platform detection
+    static var isIPhone: Bool {
+        #if os(iOS)
+        return UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        return false
+        #endif
+    }
+
+    static var isIPadOrMac: Bool {
+        #if os(iOS)
+        return UIDevice.current.userInterfaceIdiom == .pad
+        #elseif targetEnvironment(macCatalyst)
+        return true
+        #elseif os(macOS)
+        return true
+        #else
+        return false
+        #endif
+    }
+
     // Layout
     static let textSize: CGFloat = 16
     static let horizontalPadding: CGFloat = 8

@@ -21,15 +21,15 @@ struct MainView: View {
             text: $syncManager.text,
             font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
             padding: EdgeInsets(
-                top: 0,
-                leading: horizontalPadding,
+                top: Theme.isIPadOrMac ? verticalPadding / 2 : 0,
+                leading: Theme.isIPadOrMac ? verticalPadding / 2 : 0,
                 bottom: verticalPadding,
-                trailing: horizontalPadding
+                trailing: Theme.isIPadOrMac ? verticalPadding / 2 : 0,
             ),
             onShake: {
                 showingDeleteAlert = true
             },
-            topFadeHeight: 0,
+            topFadeHeight: Theme.isIPadOrMac ? textSize * 3 : 0,
             bottomFadeHeight: textSize * 3
         )
         .onChange(of: syncManager.text) { oldValue, newValue in

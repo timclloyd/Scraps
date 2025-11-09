@@ -67,7 +67,12 @@ struct UITextViewWrapper: UIViewRepresentable {
         func textViewDidChange(_ textView: UITextView) {
             parent.text = textView.text
         }
-        
+
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            // Ensure cursor stays visible when navigating with arrow keys
+            textView.scrollRangeToVisible(textView.selectedRange)
+        }
+
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
             parent.onScroll?(scrollView)
         }
