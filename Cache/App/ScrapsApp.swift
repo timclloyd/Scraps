@@ -9,13 +9,13 @@ import SwiftUI
 
 @main
 struct ScrapsApp: App {
+    @StateObject private var syncManager = CloudSyncManager()
+
     var body: some Scene {
         WindowGroup {
             MainView()
+                .environmentObject(syncManager)
                 .statusBarHidden()
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
-                    UserDefaults.standard.synchronize()
-                }
         }
     }
 }

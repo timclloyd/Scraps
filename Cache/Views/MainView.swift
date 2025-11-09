@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct MainView: View {
-    @AppStorage("currentText") private var currentText = ""
+    @EnvironmentObject var syncManager: CloudSyncManager
     @State private var showingDeleteAlert = false
 
     var textSize: CGFloat = Theme.textSize
@@ -18,7 +18,7 @@ struct MainView: View {
     
     var body: some View {
         GradientTextWrapper(
-            text: $currentText,
+            text: $syncManager.text,
             font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
             padding: EdgeInsets(
                 top: 0,
@@ -32,6 +32,9 @@ struct MainView: View {
             topFadeHeight: 0,
             bottomFadeHeight: textSize * 3
         )
+        .onChange(of: syncManager.text) { oldValue, newValue in
+            syncManager.textDidChange(newValue)
+        }
         .ignoresSafeArea(edges: .top)
         .alert("Discard all scraps?", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) {
@@ -39,7 +42,8 @@ struct MainView: View {
                 generator.notificationOccurred(.success)
             }
             Button("Clear", role: .destructive) {
-                currentText = ""
+                syncManager.text = ""
+                syncManager.textDidChange("")
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.success)
             }
