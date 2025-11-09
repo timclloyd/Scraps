@@ -20,6 +20,9 @@ struct MainView: View {
         GradientTextWrapper(
             text: $documentManager.text,
             font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+            // Platform-specific padding strategy:
+            // iPad/Mac: balanced padding on all sides (large screens can afford it)
+            // iPhone: minimal horizontal, no top (maximize text area on narrow screens, notch provides top spacing)
             padding: EdgeInsets(
                 top: Theme.isIPadOrMac ? verticalPadding / 2 : 0,
                 leading: Theme.isIPadOrMac ? verticalPadding / 2 : horizontalPadding,

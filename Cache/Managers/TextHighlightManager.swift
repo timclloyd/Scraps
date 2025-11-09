@@ -23,32 +23,35 @@ class TextHighlightManager: NSLayoutManager {
         }
     }
     
+    // Keywords to highlight for quick visual scanning
+    // These capture common intent markers in quick notes/scraps
+    // Note: patterns use word boundaries (\b) to avoid partial matches
     let patterns: [HighlightPattern] = [
-        HighlightPattern( // Idea
-            pattern: "\\bidea[a-zA-Z]*",
+        HighlightPattern(
+            pattern: "\\bidea[a-zA-Z]*",  // "idea", "ideas", etc.
             backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         ),
-        HighlightPattern( // Fun
+        HighlightPattern(
             pattern: "\\bfun\\b",
             backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         ),
-        HighlightPattern( // Todo
+        HighlightPattern(
             pattern: "\\btodo\\b",
             backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         ),
-        HighlightPattern( // Remember
+        HighlightPattern(
             pattern: "\\bremember\\b",
             backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         ),
-        HighlightPattern( // Important
+        HighlightPattern(
             pattern: "\\bimportant\\b",
             backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         ),
-        HighlightPattern( // Interesting
+        HighlightPattern(
             pattern: "\\binteresting\\b",
             backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         ),
-        HighlightPattern( // Later
+        HighlightPattern(
             pattern: "\\blater\\b",
             backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
         )
@@ -70,30 +73,35 @@ class TextHighlightManager: NSLayoutManager {
                             changeInLength: delta,
                             invalidatedRange: invalidatedCharRange)
         
+        // Prevent re-entrant calls during text edits (causes infinite loop)
         guard !isProcessing else { return }
         isProcessing = true
 
         let text = textStorage.string
+        // Process only the edited line(s) for performance (not the entire document)
         let processRange = (text as NSString).lineRange(for: newCharRange)
 
         textStorage.beginEditing()
 
-        // Clear existing attributes but keep foreground color
+        // Clear styling attributes from edited range
+        // Keep foreground color to preserve user's text color (don't interfere with dark mode)
         textStorage.removeAttribute(.backgroundColor, range: processRange)
         textStorage.removeAttribute(.link, range: processRange)
         textStorage.removeAttribute(.underlineStyle, range: processRange)
 
-        // Apply pattern highlights
+        // Apply keyword highlighting
         for pattern in patterns {
             let matches = pattern.regex.matches(in: text, options: [], range: processRange)
             for match in matches {
+                // Validate match is still within text bounds (async edits can invalidate ranges)
                 if match.range.location + match.range.length <= textStorage.length {
                     textStorage.addAttribute(.backgroundColor, value: pattern.backgroundColor, range: match.range)
                 }
             }
         }
 
-        // Detect and style URLs - just add the link attribute
+        // Detect URLs and make them tappable
+        // Only add .link attribute - UITextView handles styling via linkTextAttributes
         if let urlDetector = urlDetector {
             let urlMatches = urlDetector.matches(in: text, options: [], range: processRange)
             for match in urlMatches {

@@ -18,7 +18,8 @@ class DocumentManager: ObservableObject {
     }
 
     init() {
-        // Observe app lifecycle events
+        // Save immediately before app backgrounds or terminates
+        // Background sync is not guaranteed, so explicit save is critical
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(saveBeforeBackground),
@@ -26,6 +27,8 @@ class DocumentManager: ObservableObject {
             object: nil
         )
 
+        // Check for remote changes when app returns to foreground
+        // Ensures user sees latest content from other devices
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(checkForUpdates),
@@ -33,10 +36,10 @@ class DocumentManager: ObservableObject {
             object: nil
         )
 
-        // Migrate from UserDefaults if needed
+        // One-time migration from old @AppStorage implementation
         migrateFromUserDefaults()
 
-        // Open the document
+        // Open or create iCloud document
         openDocument()
     }
 
@@ -77,7 +80,8 @@ class DocumentManager: ObservableObject {
                     self.isLoadingFromDocument = false
                 }
 
-                // Set up automatic conflict resolution
+                // Attach observer after successful open to catch state changes
+                // Setting up before open could miss initial state transitions
                 NotificationCenter.default.addObserver(
                     self,
                     selector: #selector(self.handleDocumentStateChanged),
@@ -95,10 +99,10 @@ class DocumentManager: ObservableObject {
 
         text = newText
 
-        // Invalidate existing timer
+        // Debounced save: wait 2 seconds after user stops typing before saving
+        // Reduces unnecessary iCloud writes (each costs battery/bandwidth/quota)
+        // Balances data safety with performance
         saveTimer?.invalidate()
-
-        // Schedule new save after 2 seconds of inactivity
         saveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
             self?.saveDocument()
         }
@@ -122,8 +126,8 @@ class DocumentManager: ObservableObject {
     }
 
     @objc private func checkForUpdates() {
-        // UIDocument automatically handles updates when reopened
-        // We just need to ensure we're reflecting the latest state
+        // When app returns to foreground, reload document content
+        // UIDocument automatically syncs with iCloud, we just need to update UI
         guard let document = document else { return }
 
         isLoadingFromDocument = true
@@ -137,19 +141,38 @@ class DocumentManager: ObservableObject {
         guard let document = document else { return }
 
         if document.documentState.contains(.inConflict) {
-            // Handle conflicts: last-writer-wins (choose current version)
+            // Conflict resolution: last-writer-wins strategy
+            // UIDocument on iOS does NOT auto-resolve conflicts - we must handle them manually
+            // iCloud automatically chooses the latest modification as currentVersion
             do {
-                try NSFileVersion.removeOtherVersionsOfItem(at: document.fileURL)
+                let url = document.fileURL
 
-                if let currentVersion = NSFileVersion.currentVersionOfItem(at: document.fileURL) {
+                // Get conflict versions BEFORE removing (needed to mark them resolved)
+                let conflictVersions = NSFileVersion.unresolvedConflictVersionsOfItem(at: url) ?? []
+
+                // Remove all non-current versions from iCloud storage
+                try NSFileVersion.removeOtherVersionsOfItem(at: url)
+
+                // Mark ALL conflict versions as resolved (prevents quota consumption)
+                for version in conflictVersions {
+                    version.isResolved = true
+                }
+
+                // Mark current version as resolved (belt-and-suspenders)
+                if let currentVersion = NSFileVersion.currentVersionOfItem(at: url) {
                     currentVersion.isResolved = true
+                }
+
+                if !conflictVersions.isEmpty {
+                    print("Resolved \(conflictVersions.count) conflict version(s)")
                 }
             } catch {
                 print("Error resolving conflict: \(error)")
             }
         }
 
-        // Update text if document changed externally
+        // Update UI when document changes from another device
+        // Only update if document is editable (avoid flickering during state transitions)
         if document.documentState.contains(.editingDisabled) == false {
             isLoadingFromDocument = true
             DispatchQueue.main.async { [weak self] in
