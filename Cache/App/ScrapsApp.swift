@@ -9,12 +9,12 @@ import SwiftUI
 
 @main
 struct ScrapsApp: App {
-    @StateObject private var syncManager = CloudSyncManager()
+    @StateObject private var documentManager = DocumentManager()
 
     var body: some Scene {
         WindowGroup {
             MainView()
-                .environmentObject(syncManager)
+                .environmentObject(documentManager)
                 .statusBarHidden()
         }
     }
