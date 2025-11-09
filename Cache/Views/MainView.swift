@@ -22,9 +22,9 @@ struct MainView: View {
             font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
             padding: EdgeInsets(
                 top: Theme.isIPadOrMac ? verticalPadding / 2 : 0,
-                leading: Theme.isIPadOrMac ? verticalPadding / 2 : 0,
+                leading: Theme.isIPadOrMac ? verticalPadding / 2 : horizontalPadding,
                 bottom: verticalPadding,
-                trailing: Theme.isIPadOrMac ? verticalPadding / 2 : 0,
+                trailing: Theme.isIPadOrMac ? verticalPadding / 2 : horizontalPadding,
             ),
             onShake: {
                 showingDeleteAlert = true
