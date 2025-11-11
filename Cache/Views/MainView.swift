@@ -11,47 +11,107 @@ import SwiftUI
 struct MainView: View {
     @EnvironmentObject var documentManager: DocumentManager
     @State private var showingDeleteAlert = false
+    @State private var shouldFocusLatest = false
 
     var textSize: CGFloat = Theme.textSize
     var horizontalPadding: CGFloat = Theme.horizontalPadding
     var verticalPadding: CGFloat = Theme.verticalPadding
-    
+
     var body: some View {
-        GradientTextWrapper(
-            text: $documentManager.text,
-            font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
-            // Platform-specific padding strategy:
-            // iPad/Mac: balanced padding on all sides (large screens can afford it)
-            // iPhone: minimal horizontal, no top (maximize text area on narrow screens, notch provides top spacing)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(documentManager.scraps) { scrap in
+                        ScrapEditorView(
+                            scrap: scrap,
+                            font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+                            horizontalPadding: horizontalPadding,
+                            verticalPadding: verticalPadding,
+                            shouldBecomeFirstResponder: scrap.id == documentManager.scraps.last?.id && shouldFocusLatest
+                        )
+                        .id(scrap.id)
+
+                        // Simple separator for now (will be replaced with SeparatorView in Phase 3)
+                        if scrap.id != documentManager.scraps.last?.id {
+                            HStack {
+                                Text(scrap.timestamp, style: .date)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                Text("-")
+                                    .foregroundColor(.gray)
+                                Text(scrap.timestamp, style: .time)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                Spacer()
+                            }
+                            .padding(.horizontal, horizontalPadding)
+                            .padding(.vertical, 8)
+                            .background(Color.gray.opacity(0.1))
+                        }
+                    }
+                }
+                .padding(.top, Theme.isIPadOrMac ? verticalPadding / 2 : 0)
+            }
+            .ignoresSafeArea(edges: .top)
+            .onChange(of: documentManager.scraps.count) { oldCount, newCount in
+                // When scraps change, trigger focus
+                shouldFocusLatest = true
+                // Scroll to bottom
+                if let lastScrap = documentManager.scraps.last {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        proxy.scrollTo(lastScrap.id, anchor: .bottom)
+                    }
+                }
+            }
+            .onAppear {
+                // Focus latest scrap on initial load
+                shouldFocusLatest = true
+                if let lastScrap = documentManager.scraps.last {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        proxy.scrollTo(lastScrap.id, anchor: .bottom)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Temporary scrap editor view for testing
+struct ScrapEditorView: View {
+    let scrap: Scrap
+    let font: UIFont
+    let horizontalPadding: CGFloat
+    let verticalPadding: CGFloat
+    let shouldBecomeFirstResponder: Bool
+
+    @EnvironmentObject var documentManager: DocumentManager
+    @ObservedObject var document: TextDocument
+
+    init(scrap: Scrap, font: UIFont, horizontalPadding: CGFloat, verticalPadding: CGFloat, shouldBecomeFirstResponder: Bool) {
+        self.scrap = scrap
+        self.font = font
+        self.horizontalPadding = horizontalPadding
+        self.verticalPadding = verticalPadding
+        self.shouldBecomeFirstResponder = shouldBecomeFirstResponder
+        self.document = scrap.document
+    }
+
+    var body: some View {
+        UITextViewWrapper(
+            text: Binding(
+                get: { document.text },
+                set: { newValue in
+                    documentManager.textDidChange(for: scrap, newText: newValue)
+                }
+            ),
+            font: font,
             padding: EdgeInsets(
                 top: Theme.isIPadOrMac ? verticalPadding / 2 : 0,
                 leading: Theme.isIPadOrMac ? verticalPadding / 2 : horizontalPadding,
-                bottom: verticalPadding,
-                trailing: Theme.isIPadOrMac ? verticalPadding / 2 : horizontalPadding,
+                bottom: verticalPadding / 2,
+                trailing: Theme.isIPadOrMac ? verticalPadding / 2 : horizontalPadding
             ),
-            onShake: {
-                showingDeleteAlert = true
-            },
-            topFadeHeight: Theme.isIPadOrMac ? textSize * 3 : 0,
-            bottomFadeHeight: textSize * 3
+            shouldBecomeFirstResponder: shouldBecomeFirstResponder
         )
-        .onChange(of: documentManager.text) { oldValue, newValue in
-            documentManager.textDidChange(newValue)
-        }
-        .ignoresSafeArea(edges: .top)
-        .alert("Discard all scraps?", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) {
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
-            }
-            Button("Clear", role: .destructive) {
-                documentManager.text = ""
-                documentManager.textDidChange("")
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
-            }
-        } message: {
-            Text("It's good to forget things sometimes")
-        }
     }
 }

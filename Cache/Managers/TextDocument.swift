@@ -1,7 +1,8 @@
 import UIKit
+import Combine
 
-class TextDocument: UIDocument {
-    var text: String = ""
+class TextDocument: UIDocument, ObservableObject {
+    @Published var text: String = ""
 
     override func contents(forType typeName: String) throws -> Any {
         // Save text as UTF-8 data

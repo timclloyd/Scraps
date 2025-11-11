@@ -24,7 +24,6 @@ struct GradientTextWrapper: View {
                 text: $text,
                 font: font,
                 padding: padding,
-                onShake: onShake,
                 onScroll: { scrollView in
                     // Track scroll position to control top gradient visibility
                     // iPad/Mac always show it; iPhone only shows when scrolled
