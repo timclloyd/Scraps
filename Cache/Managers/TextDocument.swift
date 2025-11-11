@@ -2,7 +2,11 @@ import UIKit
 import Combine
 
 class TextDocument: UIDocument, ObservableObject {
-    @Published var text: String = ""
+    var text: String = "" {
+        willSet {
+            objectWillChange.send()
+        }
+    }
 
     override func contents(forType typeName: String) throws -> Any {
         // Save text as UTF-8 data
