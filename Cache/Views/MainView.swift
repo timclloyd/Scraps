@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct MainView: View {
-    @AppStorage("currentText") private var currentText = ""
+    @EnvironmentObject var documentManager: DocumentManager
     @State private var showingDeleteAlert = false
 
     var textSize: CGFloat = Theme.textSize
@@ -18,20 +18,26 @@ struct MainView: View {
     
     var body: some View {
         GradientTextWrapper(
-            text: $currentText,
+            text: $documentManager.text,
             font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+            // Platform-specific padding strategy:
+            // iPad/Mac: balanced padding on all sides (large screens can afford it)
+            // iPhone: minimal horizontal, no top (maximize text area on narrow screens, notch provides top spacing)
             padding: EdgeInsets(
-                top: 0,
-                leading: horizontalPadding,
+                top: Theme.isIPadOrMac ? verticalPadding / 2 : 0,
+                leading: Theme.isIPadOrMac ? verticalPadding / 2 : horizontalPadding,
                 bottom: verticalPadding,
-                trailing: horizontalPadding
+                trailing: Theme.isIPadOrMac ? verticalPadding / 2 : horizontalPadding,
             ),
             onShake: {
                 showingDeleteAlert = true
             },
-            topFadeHeight: 0,
+            topFadeHeight: Theme.isIPadOrMac ? textSize * 3 : 0,
             bottomFadeHeight: textSize * 3
         )
+        .onChange(of: documentManager.text) { oldValue, newValue in
+            documentManager.textDidChange(newValue)
+        }
         .ignoresSafeArea(edges: .top)
         .alert("Discard all scraps?", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) {
@@ -39,7 +45,8 @@ struct MainView: View {
                 generator.notificationOccurred(.success)
             }
             Button("Clear", role: .destructive) {
-                currentText = ""
+                documentManager.text = ""
+                documentManager.textDidChange("")
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.success)
             }

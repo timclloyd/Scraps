@@ -26,7 +26,14 @@ struct GradientTextWrapper: View {
                 padding: padding,
                 onShake: onShake,
                 onScroll: { scrollView in
-                    isScrolledToTop = scrollView.contentOffset.y <= 0
+                    // Track scroll position to control top gradient visibility
+                    // iPad/Mac always show it; iPhone only shows when scrolled
+                    let newValue = scrollView.contentOffset.y <= 0
+                    if isScrolledToTop != newValue {
+                        DispatchQueue.main.async {
+                            isScrolledToTop = newValue
+                        }
+                    }
                 }
             )
             .focused($isFocused)
@@ -35,7 +42,8 @@ struct GradientTextWrapper: View {
             }
             
             VStack(spacing: 0) {
-                // Top gradient overlay
+                // Top fade prevents text from running into status bar/notch on iPad/Mac
+                // iPhone doesn't need it (notch provides natural spacing)
                 SmoothLinearGradient(
                     from: Color(uiColor: .systemBackground).opacity(0.9),
                     to: Color(uiColor: .systemBackground).opacity(0),
@@ -44,12 +52,13 @@ struct GradientTextWrapper: View {
                     curve: .easeOut
                 )
                 .frame(height: topFadeHeight)
-                .opacity(isScrolledToTop ? 0 : 1)
+                .opacity(Theme.isIPadOrMac ? 1 : (isScrolledToTop ? 0 : 1))
                 .animation(.easeOut(duration: 0.2), value: isScrolledToTop)
-                
+
                 Spacer()
-                
-                // Bottom gradient overlay
+
+                // Bottom fade prevents text from running into home indicator area
+                // Creates visual boundary for scrollable content
                 SmoothLinearGradient(
                     from: Color(uiColor: .systemBackground).opacity(0),
                     to: Color(uiColor: .systemBackground).opacity(0.9),

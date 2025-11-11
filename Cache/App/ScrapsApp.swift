@@ -9,13 +9,26 @@ import SwiftUI
 
 @main
 struct ScrapsApp: App {
+    @StateObject private var documentManager = DocumentManager()
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             MainView()
+                .environmentObject(documentManager)
                 .statusBarHidden()
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
-                    UserDefaults.standard.synchronize()
-                }
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            switch newPhase {
+            case .background, .inactive:
+                // Save immediately when app backgrounds or becomes inactive
+                documentManager.saveDocument()
+            case .active:
+                // Check for updates when app becomes active
+                documentManager.checkForUpdates()
+            @unknown default:
+                break
+            }
         }
     }
 }

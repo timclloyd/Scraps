@@ -4,11 +4,10 @@
 //
 //  Created by Tim Lloyd on 2025-01-14.
 //
-//  SwiftUI wrapper around a custom UITextView implementation
-//  to workaround SwiftUI TextEditor not showing/hiding the keyboard
-//  reliably and to make custom highlighting easier
-//
-//  Maybe this is overcomplicated? I'm not sure...
+//  SwiftUI wrapper for UITextView to enable:
+//  1. Custom TextLayoutManager for real-time syntax highlighting
+//  2. Reliable keyboard show/hide behavior (SwiftUI TextEditor has issues)
+//  3. Shake gesture detection via CustomTextView
 
 import SwiftUI
 
@@ -67,7 +66,13 @@ struct UITextViewWrapper: UIViewRepresentable {
         func textViewDidChange(_ textView: UITextView) {
             parent.text = textView.text
         }
-        
+
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            // Auto-scroll to keep cursor visible during keyboard navigation
+            // Without this, arrow keys move cursor but view doesn't scroll (poor UX on macOS)
+            textView.scrollRangeToVisible(textView.selectedRange)
+        }
+
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
             parent.onScroll?(scrollView)
         }

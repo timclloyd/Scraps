@@ -1,28 +1,38 @@
 # Todo
 
+## Recently Completed ✓
+
+- [x] **iCloud sync implementation** - switched to UIDocument for reliable cross-device sync
+- [x] **Conflict resolution fix** - properly mark all conflict versions as resolved (prevents quota issues)
+- [x] **Code comments audit** - improved all comments to explain WHY not just WHAT
+- [x] **Cross-platform UI fixes** - platform-aware padding and gradients for iPhone/iPad/macOS
+- [x] **Scroll behavior** - fixed arrow key navigation on macOS with cursor tracking
+- [x] **Fix struct name** - renamed to ScrapsApp (matches app name)
+- [x] **Typing lag fix** - removed redundant TextLineManager (was causing sync disk I/O on every keystroke)
+- [x] **Smart regex processing** - only processes changed lines instead of entire document
+- [x] **URL highlighting** - automatic detection and tap support
+- [x] **Color scheme** - warmer accent colors implemented
+- [x] **App naming** - settled on "Scraps"
+
 ## Performance Optimization
-- [x] Fixed typing lag by removing redundant TextLineManager (was causing sync disk I/O on every keystroke)
-- [ ] Smart regex processing - only process changed paragraph/region instead of entire document
+
 - [ ] Cache highlight patterns - avoid recreating UIColors on every init
 
 ## Code Quality
-- [ ] Fix struct name in CacheApp.swift: rename NotesApp to CacheApp
-- [ ] Fix filename: remove leading space from " UITextViewWrapper.swift"
+
 - [ ] Replace force-unwraps with proper error handling in TextHighlightManager.swift (regex compilation)
 - [ ] Add tests for highlight/theme logic
 - [ ] Implement UI tests (UITests.swift is currently empty)
 
 ## Features & Polish
-- [/] Fine tune colour scheme
-	- [x] Accent colours... gut feel is I want something warmer?
-	- [ ] Tint the text slightly with accent colour?
-- [x] Refactor so it's easier to read
-- [/] Add tests
-- [/] Rename app to Ideas ???
-- [ ] Make the initial launch to text input faster - currently slow due to kb show animation
-- [x] Try highlighting URLs and making them tappable
+
+- [ ] Make the initial launch to text input faster
+	- currently slow due to
+		- kb show animation
+		- visible scroll to bottom; worse with longer text
 - [ ] Design App Store assets and text
 - [ ] Deploy to the App Store
+- [ ] Fine-tune text color tinting with accent color?
 
 # Ideas
 
@@ -38,3 +48,7 @@ To implement text fading more easily
 - track word count
 - add gradient overlay same height as the text
 - increase the opacity of the top of the gradient as word cound increases
+
+What if it had automatic subtle datestamping on opening, like Drafts but all in one document?
+
+
