@@ -26,7 +26,10 @@
 
 ## Features & Polish
 
-- [ ] Make the initial launch to text input faster - currently slow due to kb show animation
+- [ ] Make the initial launch to text input faster
+	- currently slow due to
+		- kb show animation
+		- visible scroll to bottom; worse with longer text
 - [ ] Design App Store assets and text
 - [ ] Deploy to the App Store
 - [ ] Fine-tune text color tinting with accent color?
