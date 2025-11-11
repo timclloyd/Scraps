@@ -1,14 +1,14 @@
 //
-//  ScrapEditorView.swift
+//  ScrapView.swift
 //  Cache
 //
 //  Created by Tim Lloyd on 2025-01-18.
 //
-//  Editor view for a single scrap, wrapping UITextView for text input
+//  View for displaying and editing a single scrap
 
 import SwiftUI
 
-struct ScrapEditorView: View {
+struct ScrapView: View {
     let scrap: Scrap
     @ObservedObject var document: TextDocument
     let font: UIFont
@@ -17,7 +17,7 @@ struct ScrapEditorView: View {
     @EnvironmentObject var documentManager: DocumentManager
 
     var body: some View {
-        UITextViewWrapper(
+        TextEditorView(
             text: Binding(
                 get: { document.text },
                 set: { newValue in

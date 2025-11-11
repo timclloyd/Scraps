@@ -27,7 +27,7 @@ struct MainView: View {
                                 .padding(.bottom, Theme.separatorVerticalPadding / 2)
                         }
 
-                        ScrapEditorView(
+                        ScrapView(
                             scrap: scrap,
                             document: scrap.document,
                             font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),

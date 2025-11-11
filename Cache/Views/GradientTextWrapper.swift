@@ -19,7 +19,7 @@ struct GradientTextWrapper: View {
     
     var body: some View {
         ZStack {
-            UITextViewWrapper(
+            TextEditorView(
                 text: $text,
                 font: font,
                 onScroll: { scrollView in
