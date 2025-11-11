@@ -5,7 +5,9 @@ A comprehensive guide to implementing reliable iCloud Document sync in iOS/macOS
 ## Table of Contents
 
 - [Overview](#overview)
+  - [Lifecycle Management: ScenePhase vs UIKit Notifications](#lifecycle-management-scenephase-vs-uikit-notifications)
 - [The Two Approaches](#the-two-approaches)
+- [Save Timing Strategy: Debounce vs Immediate](#save-timing-strategy-debounce-vs-immediate)
 - [UIDocument Pattern (Recommended)](#uidocument-pattern-recommended)
 - [Critical Requirements](#critical-requirements)
 - [Common Mistakes](#common-mistakes)
@@ -26,6 +28,27 @@ iCloud sync can be unreliable if not implemented correctly. The most common issu
 - **Downloads are NOT automatic** on iOS (must be explicitly triggered)
 - **Background sync is not guaranteed** during app transitions
 - **NSMetadataQuery notifications can be delayed** (several seconds is normal)
+
+### Lifecycle Management: ScenePhase vs UIKit Notifications
+
+**For SwiftUI apps, use `ScenePhase` instead of UIKit notifications:**
+
+**Advantages of ScenePhase:**
+- ✅ Handles all lifecycle events correctly on all platforms
+- ✅ Catches macOS Cmd+Q (UIKit notifications miss this)
+- ✅ SwiftUI-native approach
+- ✅ Simpler, more declarative code
+- ✅ Works consistently across iOS, iPadOS, and macOS
+
+**UIKit Notifications limitations:**
+- ❌ `didEnterBackgroundNotification` doesn't fire on macOS Cmd+Q
+- ❌ Platform-specific behavior differences
+- ❌ Requires manual observer setup/teardown
+
+**When to use which:**
+- **SwiftUI apps**: Always use ScenePhase
+- **UIKit apps**: Use UIKit notifications (no ScenePhase available)
+- **Mixed apps**: Prefer ScenePhase where possible
 
 ---
 
@@ -65,6 +88,83 @@ iCloud sync can be unreliable if not implemented correctly. The most common issu
 - Multiple independent files
 - Need granular control over sync behavior
 - Already have complex file management
+
+---
+
+## Save Timing Strategy: Debounce vs Immediate
+
+When implementing sync, you need to decide when to save changes to iCloud.
+
+### Option 1: Immediate Saves (Recommended)
+
+**Approach:** Save on every text change (or every meaningful change)
+
+**Pros:**
+- ✅ No data loss risk - changes saved immediately
+- ✅ Simpler code - no timer management
+- ✅ Works great with UIDocument (has internal coalescing)
+- ✅ No edge cases with app termination
+
+**Cons:**
+- ⚠️ More frequent API calls (mitigated by UIDocument's internal optimization)
+- ⚠️ Slightly higher battery usage (usually negligible)
+
+**When to use:**
+- Small files (like text documents)
+- When using UIDocument (it handles efficiency internally)
+- When data safety is critical
+- Cross-platform apps where quit behavior varies
+
+**Implementation:**
+```swift
+func textDidChange(_ newText: String) {
+    text = newText
+    saveDocument()  // UIDocument.save() is async
+}
+```
+
+### Option 2: Debounced Saves
+
+**Approach:** Wait N seconds after user stops typing before saving
+
+**Pros:**
+- ✅ Fewer explicit save calls
+- ✅ May reduce battery usage slightly
+
+**Cons:**
+- ❌ Risk of data loss if user quits during debounce window
+- ❌ More complex code (timer management)
+- ❌ Need special handling for lifecycle events
+- ❌ Edge cases: must invalidate timer on background/termination
+
+**When to use:**
+- Large files with expensive serialization
+- High-frequency updates (like canvas drawing apps)
+- When you're NOT using UIDocument (manual NSFileCoordinator)
+
+**Implementation:**
+```swift
+private var saveTimer: Timer?
+
+func textDidChange(_ newText: String) {
+    text = newText
+
+    saveTimer?.invalidate()
+    saveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+        self?.saveDocument()
+    }
+}
+
+// CRITICAL: Must save immediately on lifecycle events
+func saveBeforeBackground() {
+    saveTimer?.invalidate()
+    saveDocument()
+}
+```
+
+### Recommendation
+
+**Use immediate saves with UIDocument** - it's simpler and UIDocument already optimizes frequent saves internally. The added complexity and data loss risk of debouncing isn't worth the minimal performance gain for most apps.
 
 ---
 
@@ -115,7 +215,6 @@ class DocumentManager: ObservableObject {
     @Published var text: String = ""
 
     private var document: TextDocument?
-    private var saveTimer: Timer?
     private var isLoadingFromDocument = false
 
     private var documentURL: URL? {
@@ -146,11 +245,10 @@ class DocumentManager: ObservableObject {
         guard !isLoadingFromDocument else { return }
         text = newText
 
-        // Debounce saves
-        saveTimer?.invalidate()
-        saveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-            self?.saveDocument()
-        }
+        // Save immediately (async) - no debounce
+        // UIDocument.save() is async so it won't block typing
+        // UIDocument internally coalesces frequent saves for efficiency
+        saveDocument()
     }
 
     private func saveDocument() {
@@ -233,11 +331,26 @@ import SwiftUI
 @main
 struct MyApp: App {
     @StateObject private var documentManager = DocumentManager()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(documentManager)
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            switch newPhase {
+            case .background, .inactive:
+                // Save immediately when app backgrounds or becomes inactive
+                // Critical for preventing data loss on quit (especially macOS Cmd+Q)
+                documentManager.saveDocument()
+            case .active:
+                // Check for updates when app becomes active
+                // Ensures user sees latest content from other devices
+                documentManager.checkForUpdates()
+            @unknown default:
+                break
+            }
         }
     }
 }
@@ -291,7 +404,24 @@ coordinator.coordinate(writingItemAt: url, options: .forReplacing) { coordinated
 - User may have made changes on another device
 - Ensures fresh data when user switches back
 
-**Implementation:**
+**Implementation (SwiftUI - Recommended):**
+```swift
+// In your App struct, use ScenePhase
+@Environment(\.scenePhase) private var scenePhase
+
+var body: some Scene {
+    WindowGroup {
+        ContentView()
+    }
+    .onChange(of: scenePhase) { oldPhase, newPhase in
+        if newPhase == .active {
+            documentManager.checkForUpdates()
+        }
+    }
+}
+```
+
+**Implementation (UIKit):**
 ```swift
 NotificationCenter.default.addObserver(
     self,
@@ -312,9 +442,32 @@ NotificationCenter.default.addObserver(
 
 **Why:**
 - Background sync is not guaranteed
-- App may be terminated without warning
+- App may be terminated without warning (especially macOS Cmd+Q)
+- Prevents data loss when user quits quickly after editing
 
-**Implementation:**
+**Implementation (SwiftUI - Recommended):**
+```swift
+// In your App struct, use ScenePhase
+@Environment(\.scenePhase) private var scenePhase
+
+var body: some Scene {
+    WindowGroup {
+        ContentView()
+    }
+    .onChange(of: scenePhase) { oldPhase, newPhase in
+        if newPhase == .background || newPhase == .inactive {
+            documentManager.saveDocument()
+        }
+    }
+}
+```
+
+**Note:** ScenePhase correctly handles all lifecycle events including:
+- iOS: Home button press, app switcher
+- macOS: Cmd+Q, window close
+- iPadOS: Multitasking, app switching
+
+**Implementation (UIKit):**
 ```swift
 NotificationCenter.default.addObserver(
     self,
@@ -324,10 +477,11 @@ NotificationCenter.default.addObserver(
 )
 
 @objc private func saveBeforeBackground() {
-    saveTimer?.invalidate()
     saveDocument()
 }
 ```
+
+**⚠️ UIKit Limitation:** `didEnterBackgroundNotification` doesn't fire on macOS Cmd+Q (termination vs backgrounding). Use ScenePhase for cross-platform apps.
 
 ### 4. Trigger Downloads on iOS
 
@@ -538,8 +692,15 @@ See `Cache/Managers/TextDocument.swift` and `Cache/Managers/DocumentManager.swif
 
 **Key features:**
 - Automatic file coordination via UIDocument
-- Debounced saves (2 seconds after typing stops)
-- Foreground update checking
+- Immediate async saves on every edit (no debounce - UIDocument handles coalescing internally)
+- SwiftUI ScenePhase for reliable lifecycle handling across all platforms
+- Foreground update checking when app becomes active
 - Last-writer-wins conflict resolution
 - SwiftUI integration via `@Published` property
 - Migration from old storage format
+
+**Why no debouncing?**
+- UIDocument.save() is already async (doesn't block typing)
+- UIDocument internally coalesces rapid saves for efficiency
+- Immediate saves prevent data loss when quitting quickly after editing
+- Simpler code with fewer edge cases

@@ -6,7 +6,6 @@ class DocumentManager: ObservableObject {
     @Published var text: String = ""
 
     private var document: TextDocument?
-    private var saveTimer: Timer?
     private var isLoadingFromDocument = false
 
     private var documentURL: URL? {
@@ -18,24 +17,6 @@ class DocumentManager: ObservableObject {
     }
 
     init() {
-        // Save immediately before app backgrounds or terminates
-        // Background sync is not guaranteed, so explicit save is critical
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(saveBeforeBackground),
-            name: UIApplication.didEnterBackgroundNotification,
-            object: nil
-        )
-
-        // Check for remote changes when app returns to foreground
-        // Ensures user sees latest content from other devices
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(checkForUpdates),
-            name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
-
         // One-time migration from old @AppStorage implementation
         migrateFromUserDefaults()
 
@@ -99,16 +80,11 @@ class DocumentManager: ObservableObject {
 
         text = newText
 
-        // Debounced save: wait 2 seconds after user stops typing before saving
-        // Reduces unnecessary iCloud writes (each costs battery/bandwidth/quota)
-        // Balances data safety with performance
-        saveTimer?.invalidate()
-        saveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-            self?.saveDocument()
-        }
+        // Save immediately (UIDocument is async already)
+        saveDocument()
     }
 
-    private func saveDocument() {
+    func saveDocument() {
         guard let document = document, !isLoadingFromDocument else { return }
 
         document.updateText(text)
@@ -120,12 +96,7 @@ class DocumentManager: ObservableObject {
         }
     }
 
-    @objc private func saveBeforeBackground() {
-        saveTimer?.invalidate()
-        saveDocument()
-    }
-
-    @objc private func checkForUpdates() {
+    func checkForUpdates() {
         // When app returns to foreground, reload document content
         // UIDocument automatically syncs with iCloud, we just need to update UI
         guard let document = document else { return }
@@ -142,7 +113,7 @@ class DocumentManager: ObservableObject {
 
         if document.documentState.contains(.inConflict) {
             // Conflict resolution: last-writer-wins strategy
-            // UIDocument on iOS does NOT auto-resolve conflicts - we must handle them manually
+            // UIDocument on iOS does not auto-resolve conflicts - we must handle them manually
             // iCloud automatically chooses the latest modification as currentVersion
             do {
                 let url = document.fileURL
@@ -183,7 +154,6 @@ class DocumentManager: ObservableObject {
     }
 
     deinit {
-        saveTimer?.invalidate()
         document?.close(completionHandler: nil)
         NotificationCenter.default.removeObserver(self)
     }
