@@ -4,12 +4,17 @@ import UIKit
 
 class DocumentManager: ObservableObject {
     @Published var scraps: [Scrap] = []
+    @Published var focusedScrapID: UUID?
+    @Published var focusedScrapFilename: String?
 
     private var documentObservers: [NSObjectProtocol] = []
 
     // Scrap creation tracking
     private let lastCloseTimeKey = "lastCloseTime"
+    private let lastFocusedScrapFilenameKey = "lastFocusedScrapFilename"
     private var hasBackgrounded = false
+    private var isInitialLoad = true
+    var shouldSaveFocusChanges = false  // Internal so ScrapView can check it
 
     private var documentsDirectoryURL: URL? {
         guard let containerURL = FileManager.default.url(forUbiquityContainerIdentifier: nil) else {
@@ -19,11 +24,38 @@ class DocumentManager: ObservableObject {
     }
 
     init() {
-        // Check immediately if we need to create a new scrap (doesn't need to wait for loading)
-        checkAndCreateNewScrapIfNeeded()
+        // Load existing scraps first, then check if we need a new one
+        loadScraps { [weak self] in
+            guard let self = self else { return }
 
-        // Load existing scraps from disk
-        loadScraps { }
+            if self.shouldCreateNewScrap() {
+                // Long absence - create new scrap and focus it
+                self.focusedScrapID = self.scraps.last?.id
+                self.checkAndCreateNewScrapIfNeeded()
+            } else {
+                // Quick return or first launch - restore previous focus using filename
+                let savedFilename = UserDefaults.standard.string(forKey: self.lastFocusedScrapFilenameKey)
+
+                if let savedFilename = savedFilename,
+                   let savedScrap = self.scraps.first(where: { $0.filename == savedFilename }) {
+                    // Restore focus to previously focused scrap
+                    self.focusedScrapID = savedScrap.id
+                    self.focusedScrapFilename = savedFilename
+                } else {
+                    // First launch or saved scrap no longer exists - focus last scrap
+                    self.focusedScrapID = self.scraps.last?.id
+                    self.focusedScrapFilename = self.scraps.last?.filename
+                }
+            }
+
+            self.isInitialLoad = false
+
+            // Enable saving focus changes after initial load completes
+            // This prevents auto-focus from overwriting the saved ID
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.shouldSaveFocusChanges = true
+            }
+        }
     }
 
     private func loadScraps(completion: @escaping () -> Void) {
@@ -141,6 +173,8 @@ class DocumentManager: ObservableObject {
                     self?.scraps.append(scrap)
                     // Sort to ensure chronological order (oldest first)
                     self?.scraps.sort { $0.timestamp < $1.timestamp }
+                    // Set focus to the newly created scrap
+                    self?.focusedScrapID = scrap.id
                 }
             } else {
                 print("Error: Failed to create new scrap")
@@ -155,26 +189,35 @@ class DocumentManager: ObservableObject {
 
         let now = Date()
         UserDefaults.standard.set(now.timeIntervalSince1970, forKey: lastCloseTimeKey)
+
+        // Save currently focused scrap filename for restoration on quick return
+        if let focusedFilename = focusedScrapFilename {
+            UserDefaults.standard.set(focusedFilename, forKey: lastFocusedScrapFilenameKey)
+        }
     }
 
     func resetBackgroundFlag() {
         hasBackgrounded = false
     }
 
-    private func checkAndCreateNewScrapIfNeeded() {
+    private func shouldCreateNewScrap() -> Bool {
         // Check if enough time has elapsed since last close
         let lastCloseTimestamp = UserDefaults.standard.double(forKey: lastCloseTimeKey)
 
         guard lastCloseTimestamp > 0 else {
-            return
+            return false
         }
 
         let lastCloseTime = Date(timeIntervalSince1970: lastCloseTimestamp)
         let now = Date()
         let elapsed = now.timeIntervalSince(lastCloseTime)
 
-        // Check if >60 seconds (1 minute) have elapsed
-        guard elapsed > 60 else {
+        // Check if threshold time has elapsed
+        return elapsed > Preferences.newScrapThresholdSeconds
+    }
+
+    private func checkAndCreateNewScrapIfNeeded() {
+        guard shouldCreateNewScrap() else {
             return
         }
 
@@ -242,9 +285,19 @@ class DocumentManager: ObservableObject {
     }
 
     func checkForUpdates() {
-        // When app returns to foreground, documents auto-sync via UIDocument
-        // Check if we need to create a new scrap based on elapsed time
-        checkAndCreateNewScrapIfNeeded()
+        // Skip if we're still doing the initial load
+        guard !isInitialLoad else { return }
+
+        // Only reload if enough time has elapsed for a new scrap
+        // This avoids unnecessary reloads and view updates on quick app switches
+        guard shouldCreateNewScrap() else { return }
+
+        // Reload scraps from disk to catch any changes, then create new scrap
+        loadScraps { [weak self] in
+            guard let self = self else { return }
+            // Focus will be set to new scrap when creation completes
+            self.checkAndCreateNewScrapIfNeeded()
+        }
     }
 
     private func handleDocumentStateChanged(_ notification: Notification) {

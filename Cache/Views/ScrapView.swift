@@ -12,6 +12,7 @@ struct ScrapView: View {
     let scrap: Scrap
     @ObservedObject var document: TextDocument
     let font: UIFont
+    var isInitialFocus: Bool = false
 
     @EnvironmentObject var documentManager: DocumentManager
 
@@ -23,7 +24,17 @@ struct ScrapView: View {
                     documentManager.textDidChange(for: scrap, newText: newValue)
                 }
             ),
-            font: font
+            font: font,
+            isInitialFocus: isInitialFocus,
+            scrapID: scrap.id,
+            onBecomeFocused: { scrapID in
+                documentManager.focusedScrapID = scrapID
+                documentManager.focusedScrapFilename = scrap.filename
+                // Only save if initial load is complete (prevents auto-focus from overwriting saved filename)
+                if documentManager.shouldSaveFocusChanges {
+                    UserDefaults.standard.set(scrap.filename, forKey: "lastFocusedScrapFilename")
+                }
+            }
         )
         .frame(maxWidth: .infinity, alignment: .leading)
     }

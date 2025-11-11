@@ -18,6 +18,9 @@ import SwiftUI
 struct TextEditorView: UIViewRepresentable {
     @Binding var text: String
     var font: UIFont
+    var isInitialFocus: Bool = false
+    var scrapID: UUID?
+    var onBecomeFocused: ((UUID) -> Void)?
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: EnhancedTextView, context: Context) -> CGSize? {
         // Tell SwiftUI to use the proposed width but let height grow based on content
@@ -46,9 +49,13 @@ struct TextEditorView: UIViewRepresentable {
         textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
 
-        // Auto-focus new text views (for newly created scraps)
-        DispatchQueue.main.async {
-            textView.becomeFirstResponder()
+        // Set callback for when this view becomes focused
+        let scrapID = scrapID
+        let onBecomeFocused = onBecomeFocused
+        textView.onBecomeFocused = {
+            if let scrapID = scrapID {
+                onBecomeFocused?(scrapID)
+            }
         }
 
         return textView
@@ -59,6 +66,18 @@ struct TextEditorView: UIViewRepresentable {
         if uiView.text != text {
             uiView.text = text
         }
+
+        // Auto-focus only if this is marked for initial focus and hasn't focused yet
+        // Delay to ensure scrolling completes first (avoids keyboard flicker during scroll animation)
+        if isInitialFocus && !context.coordinator.hasFocused && !uiView.isFirstResponder {
+            context.coordinator.hasFocused = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                // Double-check view is still in hierarchy before focusing
+                if uiView.superview != nil {
+                    uiView.becomeFirstResponder()
+                }
+            }
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -67,6 +86,7 @@ struct TextEditorView: UIViewRepresentable {
 
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: TextEditorView
+        var hasFocused = false
 
         init(_ parent: TextEditorView) {
             self.parent = parent
@@ -81,6 +101,13 @@ struct TextEditorView: UIViewRepresentable {
             // Without this, arrow keys move cursor but view doesn't scroll (poor UX on macOS)
             textView.scrollRangeToVisible(textView.selectedRange)
         }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            // Called when text view becomes first responder
+            if let scrapID = parent.scrapID {
+                parent.onBecomeFocused?(scrapID)
+            }
+        }
     }
 }
 
@@ -88,6 +115,7 @@ struct TextEditorView: UIViewRepresentable {
 
 class EnhancedTextView: UITextView {
     var onShake: (() -> Void)?
+    var onBecomeFocused: (() -> Void)?
 
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)

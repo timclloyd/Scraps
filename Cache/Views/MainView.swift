@@ -35,7 +35,8 @@ struct MainView: View {
                             ScrapView(
                                 scrap: scrap,
                                 document: scrap.document,
-                                font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize)
+                                font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+                                isInitialFocus: scrap.id == documentManager.focusedScrapID
                             )
                             .id(scrap.id)
                             .padding(.bottom, Theme.separatorVerticalPadding)
