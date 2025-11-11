@@ -22,17 +22,9 @@ struct MainView: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(documentManager.scraps) { scrap in
-                        ScrapEditorView(
-                            scrap: scrap,
-                            font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
-                            horizontalPadding: horizontalPadding,
-                            verticalPadding: verticalPadding,
-                            shouldBecomeFirstResponder: scrap.id == documentManager.scraps.last?.id && shouldFocusLatest
-                        )
-                        .id(scrap.id)
-
                         // Simple separator for now (will be replaced with SeparatorView in Phase 3)
-                        if scrap.id != documentManager.scraps.last?.id {
+                        // Show separator BEFORE each scrap except the first one
+                        if scrap.id != documentManager.scraps.first?.id {
                             HStack {
                                 Text(scrap.timestamp, style: .date)
                                     .font(.caption)
@@ -42,12 +34,25 @@ struct MainView: View {
                                 Text(scrap.timestamp, style: .time)
                                     .font(.caption)
                                     .foregroundColor(.gray)
+                                Text("(\(scrap.filename))")
+                                    .font(.caption2)
+                                    .foregroundColor(.gray.opacity(0.5))
                                 Spacer()
                             }
                             .padding(.horizontal, horizontalPadding)
                             .padding(.vertical, 8)
                             .background(Color.gray.opacity(0.1))
                         }
+
+                        ScrapEditorView(
+                            scrap: scrap,
+                            document: scrap.document,
+                            font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+                            horizontalPadding: horizontalPadding,
+                            verticalPadding: verticalPadding,
+                            shouldBecomeFirstResponder: scrap.id == documentManager.scraps.last?.id && shouldFocusLatest
+                        )
+                        .id(scrap.id)
                     }
                 }
                 .padding(.top, Theme.isIPadOrMac ? verticalPadding / 2 : 0)
@@ -79,25 +84,19 @@ struct MainView: View {
 // Temporary scrap editor view for testing
 struct ScrapEditorView: View {
     let scrap: Scrap
+    @ObservedObject var document: TextDocument
     let font: UIFont
     let horizontalPadding: CGFloat
     let verticalPadding: CGFloat
     let shouldBecomeFirstResponder: Bool
 
     @EnvironmentObject var documentManager: DocumentManager
-    @ObservedObject var document: TextDocument
-
-    init(scrap: Scrap, font: UIFont, horizontalPadding: CGFloat, verticalPadding: CGFloat, shouldBecomeFirstResponder: Bool) {
-        self.scrap = scrap
-        self.font = font
-        self.horizontalPadding = horizontalPadding
-        self.verticalPadding = verticalPadding
-        self.shouldBecomeFirstResponder = shouldBecomeFirstResponder
-        self.document = scrap.document
-    }
 
     var body: some View {
-        UITextViewWrapper(
+        // Debug logging - verify scrap and document are correctly paired
+        let _ = print("ScrapEditorView body: scrap.filename=\(scrap.filename), scrap.id=\(scrap.id), document.text length=\(document.text.count), scrap matches: \(scrap.document === document)")
+
+        return UITextViewWrapper(
             text: Binding(
                 get: { document.text },
                 set: { newValue in

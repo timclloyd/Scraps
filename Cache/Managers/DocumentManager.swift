@@ -20,11 +20,11 @@ class DocumentManager: ObservableObject {
     }
 
     init() {
-        // Discover and open all scrap documents
-        loadScraps { [weak self] in
-            // After scraps are loaded, check if we need to create a new one
-            self?.checkAndCreateNewScrapIfNeeded()
-        }
+        // Check immediately if we need to create a new scrap (doesn't need to wait for loading)
+        checkAndCreateNewScrapIfNeeded()
+
+        // Load existing scraps from disk
+        loadScraps { }
     }
 
     private func loadScraps(completion: @escaping () -> Void) {
@@ -105,6 +105,14 @@ class DocumentManager: ObservableObject {
                 group.notify(queue: .main) { [weak self] in
                     // Sort by timestamp (oldest first)
                     loadedScraps.sort { $0.timestamp < $1.timestamp }
+
+                    // Debug: Log final scrap ordering
+                    print("=== Final scrap ordering ===")
+                    for (index, scrap) in loadedScraps.enumerated() {
+                        print("  [\(index)] \(scrap.filename) - text length: \(scrap.document.text.count), text preview: '\(scrap.document.text.prefix(30))'")
+                    }
+                    print("===========================")
+
                     self?.scraps = loadedScraps
                     completion()
                 }
@@ -123,11 +131,16 @@ class DocumentManager: ObservableObject {
             return
         }
 
-        let filename = Scrap.generateFilename()
+        let now = Date()
+        let filename = Scrap.generateFilename(for: now)
         let fileURL = documentsURL.appendingPathComponent(filename)
         let document = TextDocument(fileURL: fileURL)
-        let timestamp = Date()
-        let scrap = Scrap(timestamp: timestamp, filename: filename, document: document)
+        let scrap = Scrap(timestamp: now, filename: filename, document: document)
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.timeZone = TimeZone.current
+        print("Creating scrap NOW at: \(formatter.string(from: now)), filename: \(filename)")
 
         document.save(to: fileURL, for: .forCreating) { [weak self] success in
             if success {
@@ -145,6 +158,9 @@ class DocumentManager: ObservableObject {
 
                 DispatchQueue.main.async {
                     self?.scraps.append(scrap)
+                    // Sort to ensure chronological order (oldest first)
+                    self?.scraps.sort { $0.timestamp < $1.timestamp }
+                    print("Total scraps after creation: \(self?.scraps.count ?? 0), latest: \(self?.scraps.last?.filename ?? "none")")
                 }
             } else {
                 print("Error: Failed to create new scrap")
@@ -187,22 +203,13 @@ class DocumentManager: ObservableObject {
             return
         }
 
-        // Check if current scrap is non-empty
-        guard let currentScrap = scraps.last else {
-            print("No scraps exist, not creating new one")
-            return
-        }
-
-        let currentText = currentScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !currentText.isEmpty else {
-            print("Current scrap is empty, not creating new scrap")
-            return
-        }
-
-        // All conditions met - create new scrap
-        print("Creating new scrap (>1 minute elapsed and current scrap has content)")
+        // Create new scrap (even if last one is empty - we'll clean up empty scraps on save)
+        print("Creating new scrap (>1 minute elapsed)")
         createNewScrap()
+
+        // Clear the last close time so we don't create another scrap on the next check
+        UserDefaults.standard.removeObject(forKey: lastCloseTimeKey)
+        print("Cleared last close time to prevent duplicate scrap creation")
     }
 
     func textDidChange(for scrap: Scrap, newText: String) {
@@ -226,15 +233,53 @@ class DocumentManager: ObservableObject {
 
     func saveAllDocuments() {
         // Save all scraps (called when app backgrounds)
+        // Also clean up empty scraps
+        var scrapsToDelete: [Scrap] = []
+
         for scrap in scraps {
-            saveDocument(scrap)
+            let trimmedText = scrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if trimmedText.isEmpty {
+                // Mark for deletion
+                scrapsToDelete.append(scrap)
+                print("Marking empty scrap for deletion: \(scrap.filename)")
+            } else {
+                // Save non-empty scrap
+                saveDocument(scrap)
+            }
+        }
+
+        // Delete empty scraps
+        for scrap in scrapsToDelete {
+            deleteScrap(scrap)
+        }
+    }
+
+    private func deleteScrap(_ scrap: Scrap) {
+        // Close and delete the document
+        scrap.document.close { [weak self] success in
+            guard let self = self else { return }
+
+            do {
+                try FileManager.default.removeItem(at: scrap.document.fileURL)
+                print("Deleted empty scrap: \(scrap.filename)")
+
+                // Remove from array
+                DispatchQueue.main.async {
+                    self.scraps.removeAll { $0.id == scrap.id }
+                }
+            } catch {
+                print("Error deleting scrap file: \(error)")
+            }
         }
     }
 
     func checkForUpdates() {
         // When app returns to foreground, documents auto-sync via UIDocument
-        // No action needed - observers will handle updates
-        print("Checking for updates across \(scraps.count) scraps")
+        print("App became active, checking for updates across \(scraps.count) scraps")
+
+        // Check if we need to create a new scrap based on elapsed time
+        checkAndCreateNewScrapIfNeeded()
     }
 
     private func handleDocumentStateChanged(_ notification: Notification) {

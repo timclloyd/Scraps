@@ -19,6 +19,7 @@ struct Scrap: Identifiable {
         // Expected format: scrap-2025-01-11-104153.txt
         guard filename.hasPrefix("scrap-"),
               filename.hasSuffix(".txt") else {
+            print("Warning: Invalid scrap filename format: \(filename)")
             return nil
         }
 
@@ -30,7 +31,12 @@ struct Scrap: Identifiable {
         dateFormatter.dateFormat = "yyyy-MM-dd-HHmmss"
         dateFormatter.timeZone = TimeZone.current
 
-        return dateFormatter.date(from: timestampString)
+        guard let parsed = dateFormatter.date(from: timestampString) else {
+            print("Warning: Could not parse timestamp '\(timestampString)' from filename: \(filename)")
+            return nil
+        }
+
+        return parsed
     }
 
     /// Generate filename for a new scrap with current timestamp
