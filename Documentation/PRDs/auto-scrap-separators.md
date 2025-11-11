@@ -385,14 +385,92 @@ struct Scrap: Identifiable {
 
 ---
 
-## Next Steps
+## Implementation Plan
 
-1. Prototype multi-document architecture
-   - Update DocumentManager to handle multiple UIDocument instances
-   - Implement file enumeration on launch
-   - Create scrap list UI
-2. Implement separator UI component
-3. Add new-scrap creation logic (1-minute threshold)
-4. Implement migration from `scraps.txt`
-5. Test on all platforms (iOS/iPad/Mac)
-6. Test with iCloud sync across devices
+**Strategy:** Migration first, then build new features. This ensures existing data is safely converted before implementing multi-scrap functionality.
+
+### Phase 1: Migration Foundation (FIRST - Most Critical)
+
+**Goal:** Safely convert existing `scraps.txt` to new format
+
+**Tasks:**
+- Add UserDefaults key `hasMigratedToScraps` to track migration status
+- Implement migration logic in DocumentManager:
+  - Check if `scraps.txt` exists and no `scrap-*.txt` files exist
+  - If yes: read scraps.txt content
+  - Create new file: `scrap-[current-timestamp].txt` with that content
+  - Set migration flag in UserDefaults
+  - Leave `scraps.txt` untouched (backup)
+- Run migration on DocumentManager initialization
+- Test migration thoroughly before proceeding
+
+**After Phase 1:** App works with one scrap file in new format. Existing data is safe.
+
+### Phase 2: Multi-Document Infrastructure
+
+**Goal:** Build foundation for managing multiple scrap files
+
+**Tasks:**
+- Create `Scrap` model (id, timestamp, filename, document)
+- Add file enumeration to DocumentManager:
+  - Find all `scrap-*.txt` files
+  - Parse timestamps from filenames
+  - Create Scrap instances sorted chronologically
+- Update DocumentManager to manage array of Scraps
+- Extend existing save/sync logic to work with array
+- Update conflict resolution to handle multiple documents
+
+**After Phase 2:** App can load and manage multiple scrap files (still displays single scrap from migration)
+
+### Phase 3: UI for Multiple Scraps
+
+**Goal:** Display multiple scraps seamlessly with separators
+
+**Tasks:**
+- Add `Theme.separatorColor` (UIColor.systemGray3)
+- Create `SeparatorView` component:
+  - GeometryReader for responsive width
+  - Timestamp formatting (yyyy-MM-dd HH:mm)
+  - Dotted line rendering
+- Refactor MainView to use LazyVStack:
+  - ScrollViewReader wrapper for programmatic scrolling
+  - ForEach over scraps array
+  - SeparatorView between each scrap
+  - @FocusState for focus management
+- Focus newest scrap on launch
+
+**After Phase 3:** UI displays multiple scraps seamlessly (still only one scrap exists from migration, but ready for more)
+
+### Phase 4: New Scrap Creation Logic
+
+**Goal:** Automatically create new scraps based on usage patterns
+
+**Tasks:**
+- Add UserDefaults `lastCloseTime` tracking
+- Update ScenePhase monitoring in ScrapsApp:
+  - Save timestamp on background/inactive
+  - Check 1-minute threshold on active
+  - Check if current scrap is non-empty (has non-whitespace content)
+  - Create new scrap file if conditions met
+- Implement empty scrap detection and cleanup
+- Generate filenames with full timestamp (seconds for uniqueness)
+
+**After Phase 4:** Fully functional auto-scrap feature
+
+### Phase 5: Testing & Polish
+
+**Goal:** Ensure reliability across all scenarios
+
+**Tasks:**
+- Test migration with various edge cases:
+  - Empty scraps.txt
+  - Very large scraps.txt
+  - Corrupted scraps.txt
+  - Already-migrated state
+- Test multi-device sync scenarios
+- Verify empty scrap handling
+- Performance testing with many scraps
+- Test on all platforms (iOS/iPad/Mac)
+- Test orientation changes and window resize
+
+**Key Benefit:** Each phase maintains a working, stable app. Migration happens first so all data is in the new format before we build multi-scrap features.
