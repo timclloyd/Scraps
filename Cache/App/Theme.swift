@@ -69,7 +69,15 @@ enum Theme {
     )
     
     static let linkColor = UIColor.systemGray3
-    static let separatorColor = UIColor.systemGray3
+
+    static let separatorColor = UIColor { traitCollection in
+        switch traitCollection.userInterfaceStyle {
+        case .dark:
+            return UIColor.systemGray5
+        default:
+            return UIColor.systemGray3
+        }
+    }
     
     static func dynamicHighlightColor(for traitCollection: UITraitCollection) -> UIColor {
         UIColor { traitCollection in
