@@ -42,10 +42,6 @@ struct UITextViewWrapper: UIViewRepresentable {
             right: padding.trailing
         )
 
-        // Set up keyboard observer
-        context.coordinator.textView = textView
-        context.coordinator.setupKeyboardObserver()
-
         return textView
     }
 
@@ -58,8 +54,6 @@ struct UITextViewWrapper: UIViewRepresentable {
         // Handle first responder
         if shouldBecomeFirstResponder && !context.coordinator.hasBecomefirstResponder {
             context.coordinator.hasBecomefirstResponder = true
-            context.coordinator.shouldScrollToCursor = true
-            print("Setting shouldScrollToCursor = true, will scroll after keyboard shows")
 
             DispatchQueue.main.async {
                 uiView.becomeFirstResponder()
@@ -77,31 +71,9 @@ struct UITextViewWrapper: UIViewRepresentable {
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: UITextViewWrapper
         var hasBecomefirstResponder = false
-        var shouldScrollToCursor = false
-        weak var textView: UITextView?
 
         init(_ parent: UITextViewWrapper) {
             self.parent = parent
-        }
-
-        deinit {
-            NotificationCenter.default.removeObserver(self)
-        }
-
-        func setupKeyboardObserver() {
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(keyboardDidShow),
-                name: UIResponder.keyboardDidShowNotification,
-                object: nil
-            )
-        }
-
-        @objc func keyboardDidShow() {
-            // Text view is non-scrollable and sizes to content
-            // The outer ScrollView handles scrolling
-            // Nothing to do here - just clear the flag
-            shouldScrollToCursor = false
         }
 
         func textViewDidChange(_ textView: UITextView) {

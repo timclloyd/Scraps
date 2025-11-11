@@ -10,7 +10,6 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject var documentManager: DocumentManager
-    @State private var showingDeleteAlert = false
     @State private var shouldFocusLatest = false
 
     var textSize: CGFloat = Theme.textSize
@@ -93,10 +92,7 @@ struct ScrapEditorView: View {
     @EnvironmentObject var documentManager: DocumentManager
 
     var body: some View {
-        // Debug logging - verify scrap and document are correctly paired
-        let _ = print("ScrapEditorView body: scrap.filename=\(scrap.filename), scrap.id=\(scrap.id), document.text length=\(document.text.count), scrap matches: \(scrap.document === document)")
-
-        return UITextViewWrapper(
+        UITextViewWrapper(
             text: Binding(
                 get: { document.text },
                 set: { newValue in
