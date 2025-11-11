@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "15D9C2852D350BFB0013E9A3"
-               BuildableName = "Cache.app"
-               BlueprintName = "Cache"
+               BuildableName = "Scraps.app"
+               BlueprintName = "Scraps"
                ReferencedContainer = "container:Cache.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -69,8 +69,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "15D9C2852D350BFB0013E9A3"
-            BuildableName = "Cache.app"
-            BlueprintName = "Cache"
+            BuildableName = "Scraps.app"
+            BlueprintName = "Scraps"
             ReferencedContainer = "container:Cache.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -86,8 +86,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "15D9C2852D350BFB0013E9A3"
-            BuildableName = "Cache.app"
-            BlueprintName = "Cache"
+            BuildableName = "Scraps.app"
+            BlueprintName = "Scraps"
             ReferencedContainer = "container:Cache.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
