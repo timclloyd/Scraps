@@ -19,15 +19,15 @@ struct SeparatorView: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        VStack(spacing: Theme.separatorVerticalPadding / 2) {
+            DottedLine()
+                .stroke(Color(Theme.separatorColor), style: StrokeStyle(lineWidth: 1, dash: [1, 8]))
+                .frame(height: 1)
+            
             Text(formattedTimestamp)
                 .font(.custom(Theme.font, size: Theme.separatorFontSize))
                 .foregroundColor(Color(Theme.separatorColor))
-
-            // Dotted line that fills remaining space
-            DottedLine()
-                .stroke(Color(Theme.separatorColor), style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
-                .frame(height: 1)
+                .frame(maxWidth: .infinity, alignment: .leading) // align left
         }
     }
 }
