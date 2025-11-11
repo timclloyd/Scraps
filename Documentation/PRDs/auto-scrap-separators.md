@@ -1,8 +1,6 @@
 # PRD: Automatic Scrap Separators
 
-**Status:** Draft
-**Created:** 2025-01-11
-**Last Updated:** 2025-01-11
+**Status:** Implementation In Progress
 
 ---
 
@@ -25,8 +23,6 @@ Add automatic time-based separators that divide the continuous text into discret
 
 ## Non-Goals
 
-- Separate files for each scrap
-- Manual separator insertion (for v1 at least)
 - Complex scrap management UI
 
 ---
@@ -78,10 +74,18 @@ Add automatic time-based separators that divide the continuous text into discret
 - **Width**: Same as text content width (respects `Theme.horizontalPadding`)
 - **Vertical padding**: Uses existing `Theme.verticalPadding` constant (48pt above and below)
 
+**Implementation approach:**
+- **Custom SwiftUI View** using `GeometryReader` for responsive width calculation
+- **Not** text-based repeating characters (better flexibility and maintainability)
+- Separator is non-interactive (no tap gestures, not selectable)
+- Rendered between `TextEditor` instances in `LazyVStack`
+
 **Implementation notes:**
-- Dotted line implemented as repeating "- " characters OR custom SwiftUI view
-- Must be dynamically calculated based on available width and timestamp width
-- Should maintain consistent spacing between dashes regardless of window size
+- Dotted line implemented using custom SwiftUI Path or repeating views
+- Width dynamically calculated using `GeometryReader` to get available space
+- Timestamp label width measured, remaining space filled with dashes
+- Maintains consistent spacing/appearance regardless of window size
+- Fully responsive to orientation changes and window resize
 
 ---
 
@@ -205,9 +209,172 @@ These can be added in future iterations once the core multi-file architecture is
 - Migration logic: One-time conversion from `scraps.txt` to first scrap file
 
 **Performance:**
-- Each scrap is a separate UIDocument (lazy loading)
-- Should scale reasonably with hundreds of scraps
-- Can optimize with virtual scrolling later if needed
+- LazyVStack automatically optimizes rendering of large lists
+- Only visible text editors are rendered/maintained by SwiftUI
+- UIDocument instances all kept in memory (minimal overhead)
+- Should scale to hundreds of scraps without performance issues
+- ScrollViewReader used for programmatic scrolling to bottom
+
+**UI Architecture:**
+```
+MainView
+└── ScrollViewReader
+    └── ScrollView
+        └── LazyVStack
+            ├── TextEditor (scrap 1)
+            ├── SeparatorView
+            ├── TextEditor (scrap 2)
+            ├── SeparatorView
+            └── TextEditor (scrap N)  ← focused on launch
+```
+
+**File Enumeration:**
+- Use `FileManager.contentsOfDirectory(at:includingPropertiesForKeys:)`
+- Filter URLs with `.lastPathComponent.hasPrefix("scrap-")`
+- Parse timestamp from filename using `DateFormatter`
+- Sort by timestamp (ascending) for chronological display
+- Handle parse errors gracefully (skip malformed files, log warning)
+
+---
+
+## Implementation Details
+
+### Document Lifecycle Management
+
+**Approach:** Keep all scrap documents in memory, leverage SwiftUI's LazyVStack for rendering optimization.
+
+**Strategy:**
+- `DocumentManager` maintains an array of `Scrap` instances (one per file)
+- Each `Scrap` wraps a `TextDocument` instance + parsed timestamp
+- All documents opened on app launch via file enumeration
+- LazyVStack handles view recycling automatically
+- No manual lazy loading needed - SwiftUI optimizes rendering
+
+**Rationale:**
+- Simpler architecture for v1
+- UIDocument already handles memory efficiently
+- LazyVStack prevents rendering all text editors simultaneously
+- Can add sophisticated lazy loading later if performance issues arise
+
+### File Enumeration Strategy
+
+**On app launch:**
+1. Use `FileManager` to enumerate `iCloud/Documents/` directory
+2. Filter for files matching pattern: `scrap-*.txt`
+3. Parse timestamp from each filename
+4. Sort chronologically by timestamp (oldest first)
+5. Create `Scrap` instance for each file
+6. Open all documents (UIDocument manages caching)
+7. Store in `DocumentManager.scraps: [Scrap]`
+
+**Error handling:**
+- Skip files with malformed filenames (log warning)
+- Handle document open failures gracefully (show error in UI)
+- Corrupted files: UIDocument's existing error handling
+
+### Focus Management
+
+**Initial focus behavior:**
+- Always focus the newest (bottom) scrap on app launch
+- Use `ScrollViewReader` to scroll to bottom scrap
+- Set focus using SwiftUI's `@FocusState`
+
+**During editing:**
+- Track currently focused scrap via `@FocusState`
+- User taps a scrap to edit it
+- Keyboard shows/hides based on focus state
+- Each scrap is independent - cursor doesn't cross boundaries
+
+**Implementation:**
+```swift
+@FocusState private var focusedScrapID: UUID?
+
+LazyVStack {
+    ForEach(scraps) { scrap in
+        TextEditor(...)
+            .focused($focusedScrapID, equals: scrap.id)
+    }
+}
+.onAppear {
+    focusedScrapID = scraps.last?.id
+}
+```
+
+### Empty Scrap Detection
+
+**Timing:** Check when app enters background or inactive state
+
+**Logic:**
+1. On `scenePhase` change to `.background` or `.inactive`
+2. Check if current scrap has only whitespace/newlines
+3. If empty: don't save document (or delete file if already created)
+4. If non-empty: save normally via `UIDocument.save()`
+
+**Edge case:**
+- If user creates scrap, types content, deletes all → treated as empty
+- New scrap only created in-memory until first non-whitespace character typed
+
+### Separator UI Implementation
+
+**Component:** Custom SwiftUI View named `SeparatorView`
+
+**Structure:**
+```swift
+struct SeparatorView: View {
+    let timestamp: Date
+
+    var body: some View {
+        GeometryReader { geometry in
+            HStack(spacing: 8) {
+                Text(formattedTimestamp)
+                    .foregroundColor(Theme.separatorColor)
+                Spacer()
+                // Dotted line using repeating dashes or Path
+            }
+            .padding(.horizontal, Theme.horizontalPadding)
+        }
+        .frame(height: 1) // Minimal height, padding via container
+        .padding(.vertical, Theme.verticalPadding)
+    }
+}
+```
+
+**Rendering approach:**
+- GeometryReader provides available width
+- Calculate timestamp label width
+- Fill remaining space with dashes or custom Path
+- Fully responsive to window resize and orientation changes
+
+**Non-interactive:**
+- Separators should not be selectable or editable
+- No tap gestures (for v1)
+- Pure visual element between text editors
+
+### State Management
+
+**Primary state container:** `DocumentManager` (existing class)
+
+**New properties:**
+```swift
+@Published var scraps: [Scrap] = []  // Replaces single TextDocument
+@Published var currentScrapID: UUID?  // Track focused scrap
+```
+
+**Scrap model:**
+```swift
+struct Scrap: Identifiable {
+    let id: UUID
+    let timestamp: Date       // Parsed from filename
+    let filename: String      // e.g., "scrap-2025-01-11-104153.txt"
+    let document: TextDocument
+}
+```
+
+**Migration from existing architecture:**
+- Current: `DocumentManager` has single `TextDocument`
+- New: `DocumentManager` has array of `Scrap` instances
+- Existing sync logic (conflict resolution, auto-save) extends to each document
+- Same patterns, just applied to multiple documents instead of one
 
 ---
 
