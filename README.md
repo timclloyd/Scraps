@@ -1,6 +1,8 @@
 # Scraps
 
-A super fast, minimal app for capturing thoughts and ideas in plain text. Syncs seamlessly across iPhone, iPad, and Mac via iCloud.
+A super fast, minimal app for capturing thoughts and ideas in plain text. Syncs across iPhone, iPad, and Mac via iCloud.
+
+> Used to be named Cache, hence the name of the project and some of the files.
 
 ## Features
 
@@ -30,7 +32,7 @@ Built with SwiftUI and UIKit. Universal app supporting iPhone, iPad, and macOS (
 
 ### Dependencies
 
-- [SmoothGradient](https://github.com/raymondjavaxx/SmoothGradient) - High-quality gradient rendering for fade effects
+- [SmoothGradient](https://github.com/raymondjavaxx/SmoothGradient) - Gradients without colour banding
 
 ### Running Tests
 
@@ -52,7 +54,6 @@ Built with SwiftUI and UIKit. Universal app supporting iPhone, iPad, and macOS (
 ### Sync & Persistence
 - **UIDocument-based iCloud sync** for reliable cross-device synchronization
 - Automatic NSFileCoordinator usage (required for iCloud daemon detection)
-- Debounced saves to minimize disk I/O
 - Last-writer-wins conflict resolution
 - Offline support with local caching
 
