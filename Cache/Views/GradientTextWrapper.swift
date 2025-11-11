@@ -11,7 +11,6 @@ import SmoothGradient
 struct GradientTextWrapper: View {
     @Binding var text: String
     let font: UIFont
-    let padding: EdgeInsets
     let onShake: () -> Void
     let topFadeHeight: CGFloat
     let bottomFadeHeight: CGFloat
@@ -23,7 +22,6 @@ struct GradientTextWrapper: View {
             UITextViewWrapper(
                 text: $text,
                 font: font,
-                padding: padding,
                 onScroll: { scrollView in
                     // Track scroll position to control top gradient visibility
                     // iPad/Mac always show it; iPhone only shows when scrolled

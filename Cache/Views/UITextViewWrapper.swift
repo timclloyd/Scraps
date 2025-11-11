@@ -14,9 +14,15 @@ import SwiftUI
 struct UITextViewWrapper: UIViewRepresentable {
     @Binding var text: String
     var font: UIFont
-    var padding: EdgeInsets
     var onScroll: ((UIScrollView) -> Void)? = nil
     var shouldBecomeFirstResponder: Bool = false
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: CustomTextView, context: Context) -> CGSize? {
+        // Tell SwiftUI to use the proposed width but let height grow based on content
+        guard let width = proposal.width else { return nil }
+        let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: size.height)
+    }
 
     func makeUIView(context: Context) -> CustomTextView {
         let layoutManager = TextHighlightManager()
@@ -35,12 +41,9 @@ struct UITextViewWrapper: UIViewRepresentable {
         textView.keyboardDismissMode = .none
         textView.showsVerticalScrollIndicator = false
 
-        textView.textContainerInset = UIEdgeInsets(
-            top: padding.top,
-            left: padding.leading,
-            bottom: padding.bottom,
-            right: padding.trailing
-        )
+        // Remove default text container insets so text aligns with separator
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
 
         return textView
     }

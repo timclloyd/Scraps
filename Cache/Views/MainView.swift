@@ -21,40 +21,25 @@ struct MainView: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(documentManager.scraps) { scrap in
-                        // Simple separator for now (will be replaced with SeparatorView in Phase 3)
-                        // Show separator BEFORE each scrap except the first one
+                        // Show datetime stamped separator before each scrap except the first one
                         if scrap.id != documentManager.scraps.first?.id {
-                            HStack {
-                                Text(scrap.timestamp, style: .date)
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                                Text("-")
-                                    .foregroundColor(.gray)
-                                Text(scrap.timestamp, style: .time)
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                                Text("(\(scrap.filename))")
-                                    .font(.caption2)
-                                    .foregroundColor(.gray.opacity(0.5))
-                                Spacer()
-                            }
-                            .padding(.horizontal, horizontalPadding)
-                            .padding(.vertical, 8)
-                            .background(Color.gray.opacity(0.1))
+                            SeparatorView(timestamp: scrap.timestamp)
+                                .padding(.bottom, Theme.separatorVerticalPadding / 2)
                         }
 
                         ScrapEditorView(
                             scrap: scrap,
                             document: scrap.document,
                             font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
-                            horizontalPadding: horizontalPadding,
-                            verticalPadding: verticalPadding,
                             shouldBecomeFirstResponder: scrap.id == documentManager.scraps.last?.id && shouldFocusLatest
                         )
                         .id(scrap.id)
+                        .padding(.bottom, Theme.separatorVerticalPadding)
                     }
                 }
-                .padding(.top, Theme.isIPadOrMac ? verticalPadding / 2 : 0)
+                .padding(.top, Theme.isIPadOrMac ? verticalPadding / 2 : verticalPadding)
+                .padding(.leading, Theme.horizontalPadding)
+                .padding(.trailing, Theme.horizontalPadding)
             }
             .ignoresSafeArea(edges: .top)
             .onChange(of: documentManager.scraps.count) { oldCount, newCount in
@@ -80,13 +65,10 @@ struct MainView: View {
     }
 }
 
-// Temporary scrap editor view for testing
 struct ScrapEditorView: View {
     let scrap: Scrap
     @ObservedObject var document: TextDocument
     let font: UIFont
-    let horizontalPadding: CGFloat
-    let verticalPadding: CGFloat
     let shouldBecomeFirstResponder: Bool
 
     @EnvironmentObject var documentManager: DocumentManager
@@ -100,13 +82,8 @@ struct ScrapEditorView: View {
                 }
             ),
             font: font,
-            padding: EdgeInsets(
-                top: Theme.isIPadOrMac ? verticalPadding / 2 : 0,
-                leading: Theme.isIPadOrMac ? verticalPadding / 2 : horizontalPadding,
-                bottom: verticalPadding / 2,
-                trailing: Theme.isIPadOrMac ? verticalPadding / 2 : horizontalPadding
-            ),
             shouldBecomeFirstResponder: shouldBecomeFirstResponder
         )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
