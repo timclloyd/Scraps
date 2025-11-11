@@ -17,19 +17,8 @@ class DocumentManager: ObservableObject {
     }
 
     init() {
-        // One-time migration from old @AppStorage implementation
-        migrateFromUserDefaults()
-
         // Open or create iCloud document
         openDocument()
-    }
-
-    private func migrateFromUserDefaults() {
-        if let oldText = UserDefaults.standard.string(forKey: "currentText"), !oldText.isEmpty {
-            text = oldText
-            UserDefaults.standard.removeObject(forKey: "currentText")
-            UserDefaults.standard.synchronize()
-        }
     }
 
     private func openDocument() {
