@@ -12,7 +12,6 @@ struct ScrapView: View {
     let scrap: Scrap
     @ObservedObject var document: TextDocument
     let font: UIFont
-    let shouldBecomeFirstResponder: Bool
 
     @EnvironmentObject var documentManager: DocumentManager
 
@@ -24,8 +23,7 @@ struct ScrapView: View {
                     documentManager.textDidChange(for: scrap, newText: newValue)
                 }
             ),
-            font: font,
-            shouldBecomeFirstResponder: shouldBecomeFirstResponder
+            font: font
         )
         .frame(maxWidth: .infinity, alignment: .leading)
     }

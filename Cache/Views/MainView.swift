@@ -11,7 +11,6 @@ import SmoothGradient
 
 struct MainView: View {
     @EnvironmentObject var documentManager: DocumentManager
-    @State private var shouldFocusLatest = false
     @State private var isScrolledToTop = true
     @State private var keyboardHeight: CGFloat = 0
 
@@ -25,19 +24,18 @@ struct MainView: View {
         ZStack {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    VStack(spacing: 0) {
                         ForEach(documentManager.scraps) { scrap in
                             // Show datetime stamped separator before each scrap except the first one
                             if scrap.id != documentManager.scraps.first?.id {
                                 SeparatorView(timestamp: scrap.timestamp)
                                     .padding(.bottom, Theme.separatorVerticalPadding / 2)
                             }
-                            
+
                             ScrapView(
                                 scrap: scrap,
                                 document: scrap.document,
-                                font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
-                                shouldBecomeFirstResponder: scrap.id == documentManager.scraps.last?.id && shouldFocusLatest
+                                font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize)
                             )
                             .id(scrap.id)
                             .padding(.bottom, Theme.separatorVerticalPadding)
@@ -55,6 +53,7 @@ struct MainView: View {
                         }
                     )
                 }
+                .scrollDismissesKeyboard(.never)
                 .coordinateSpace(name: "scroll")
                 .ignoresSafeArea(edges: .top)
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
@@ -64,9 +63,7 @@ struct MainView: View {
                     }
                 }
                 .onChange(of: documentManager.scraps.count) { oldCount, newCount in
-                    // When scraps change, trigger focus
-                    shouldFocusLatest = true
-                    // Scroll to bottom
+                    // Scroll to bottom when scraps change
                     if let lastScrap = documentManager.scraps.last {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             proxy.scrollTo(lastScrap.id, anchor: .bottom)
@@ -74,8 +71,7 @@ struct MainView: View {
                     }
                 }
                 .onAppear {
-                    // Focus latest scrap on initial load
-                    shouldFocusLatest = true
+                    // Scroll to latest scrap on initial load
                     if let lastScrap = documentManager.scraps.last {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             proxy.scrollTo(lastScrap.id, anchor: .bottom)

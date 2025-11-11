@@ -18,8 +18,6 @@ import SwiftUI
 struct TextEditorView: UIViewRepresentable {
     @Binding var text: String
     var font: UIFont
-    var onScroll: ((UIScrollView) -> Void)? = nil
-    var shouldBecomeFirstResponder: Bool = false
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: EnhancedTextView, context: Context) -> CGSize? {
         // Tell SwiftUI to use the proposed width but let height grow based on content
@@ -42,12 +40,16 @@ struct TextEditorView: UIViewRepresentable {
         textView.font = font
         textView.delegate = context.coordinator
         textView.backgroundColor = .clear
-        textView.keyboardDismissMode = .none
         textView.showsVerticalScrollIndicator = false
 
         // Remove default text container insets so text aligns with separator
         textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
+
+        // Auto-focus new text views (for newly created scraps)
+        DispatchQueue.main.async {
+            textView.becomeFirstResponder()
+        }
 
         return textView
     }
@@ -57,18 +59,6 @@ struct TextEditorView: UIViewRepresentable {
         if uiView.text != text {
             uiView.text = text
         }
-
-        // Handle first responder
-        if shouldBecomeFirstResponder && !context.coordinator.hasBecomefirstResponder {
-            context.coordinator.hasBecomefirstResponder = true
-
-            DispatchQueue.main.async {
-                uiView.becomeFirstResponder()
-                // Move cursor to end of text
-                let endPosition = uiView.endOfDocument
-                uiView.selectedTextRange = uiView.textRange(from: endPosition, to: endPosition)
-            }
-        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -77,7 +67,6 @@ struct TextEditorView: UIViewRepresentable {
 
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: TextEditorView
-        var hasBecomefirstResponder = false
 
         init(_ parent: TextEditorView) {
             self.parent = parent
@@ -91,10 +80,6 @@ struct TextEditorView: UIViewRepresentable {
             // Auto-scroll to keep cursor visible during keyboard navigation
             // Without this, arrow keys move cursor but view doesn't scroll (poor UX on macOS)
             textView.scrollRangeToVisible(textView.selectedRange)
-        }
-
-        func scrollViewDidScroll(_ scrollView: UIScrollView) {
-            parent.onScroll?(scrollView)
         }
     }
 }
