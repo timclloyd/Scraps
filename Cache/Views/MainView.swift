@@ -26,25 +26,35 @@ struct MainView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         ForEach(documentManager.scraps) { scrap in
-                            // Show datetime stamped separator before each scrap except the first one
-                            if scrap.id != documentManager.scraps.first?.id {
-                                SeparatorView(timestamp: scrap.timestamp)
-                                    .padding(.bottom, Theme.separatorVerticalPadding / 2)
-                            }
+                            VStack(spacing: 0) {
+                                // Show datetime stamped separator before each scrap except the first one
+                                if scrap.id != documentManager.scraps.first?.id {
+                                    SeparatorView(timestamp: scrap.timestamp)
+                                        .padding(.top, Theme.separatorVerticalPadding / 2)
+                                        .padding(.bottom, Theme.separatorVerticalPadding / 2)
+                                        .padding(.leading, Theme.horizontalPadding)
+                                        .padding(.trailing, Theme.horizontalPadding)
+                                }
 
-                            ScrapView(
-                                scrap: scrap,
-                                document: scrap.document,
-                                font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
-                                isInitialFocus: scrap.id == documentManager.focusedScrapID
+                                ScrapView(
+                                    scrap: scrap,
+                                    document: scrap.document,
+                                    font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+                                    isInitialFocus: scrap.id == documentManager.focusedScrapID
+                                )
+                                .padding(.leading, Theme.horizontalPadding)
+                                .padding(.trailing, Theme.horizontalPadding)
+                                .padding(.bottom, Theme.separatorVerticalPadding / 1.5)
+                            }
+                            .background(
+                                scrap.id == documentManager.focusedScrapID ?
+                                    Color(uiColor: Theme.dynamicFocusBackgroundColor(for: UITraitCollection.current)) :
+                                    Color.clear
                             )
                             .id(scrap.id)
-                            .padding(.bottom, Theme.separatorVerticalPadding)
                         }
                     }
                     .padding(.top, Theme.isIPadOrMac ? verticalPadding / 2 : verticalPadding)
-                    .padding(.leading, Theme.horizontalPadding)
-                    .padding(.trailing, Theme.horizontalPadding)
                     .background(
                         GeometryReader { geometry in
                             Color.clear.preference(

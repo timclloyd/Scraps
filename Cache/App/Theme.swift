@@ -78,6 +78,14 @@ enum Theme {
             return UIColor.systemGray3
         }
     }
+
+    static let focusBackgroundColorLight = UIColor(
+        Color(UIColor.systemGray6.withAlphaComponent(0.67))
+    )
+
+    static let focusBackgroundColorDark = UIColor(
+        Color(UIColor.systemGray6.withAlphaComponent(0.67))
+    )
     
     static func dynamicHighlightColor(for traitCollection: UITraitCollection) -> UIColor {
         UIColor { traitCollection in
@@ -97,6 +105,17 @@ enum Theme {
                 return cursorColorDark
             default:
                 return cursorColorLight
+            }
+        }
+    }
+
+    static func dynamicFocusBackgroundColor(for traitCollection: UITraitCollection) -> UIColor {
+        UIColor { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .dark:
+                return focusBackgroundColorDark
+            default:
+                return focusBackgroundColorLight
             }
         }
     }
