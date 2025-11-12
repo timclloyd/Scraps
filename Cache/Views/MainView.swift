@@ -51,6 +51,8 @@ struct MainView: View {
                                     Color(uiColor: Theme.dynamicFocusBackgroundColor(for: UITraitCollection.current)) :
                                     Color.clear
                             )
+                            .cornerRadius(12)
+                            .padding(.horizontal, Theme.horizontalPadding)
                             .id(scrap.id)
                         }
                     }
