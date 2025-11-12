@@ -34,6 +34,7 @@ enum Theme {
     // Layout
     static let textSize: CGFloat = 16
     static let horizontalPadding: CGFloat = 16
+    static let horizontalPaddingBackground: CGFloat = 4
     static let verticalPadding: CGFloat = 48
 
     // Separator

@@ -30,10 +30,8 @@ struct MainView: View {
                                 // Show datetime stamped separator before each scrap except the first one
                                 if scrap.id != documentManager.scraps.first?.id {
                                     SeparatorView(timestamp: scrap.timestamp)
-                                        .padding(.top, Theme.separatorVerticalPadding / 2)
-                                        .padding(.bottom, Theme.separatorVerticalPadding / 2)
-                                        .padding(.leading, Theme.horizontalPadding)
-                                        .padding(.trailing, Theme.horizontalPadding)
+                                        .padding(.vertical, Theme.separatorVerticalPadding / 2 - Theme.horizontalPaddingBackground)
+                                        .padding(.horizontal, Theme.horizontalPadding - Theme.horizontalPaddingBackground)
                                 }
 
                                 ScrapView(
@@ -42,9 +40,8 @@ struct MainView: View {
                                     font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
                                     isInitialFocus: scrap.id == documentManager.focusedScrapID
                                 )
-                                .padding(.leading, Theme.horizontalPadding)
-                                .padding(.trailing, Theme.horizontalPadding)
-                                .padding(.bottom, Theme.separatorVerticalPadding / 1.5)
+                                .padding(.horizontal, Theme.horizontalPadding - Theme.horizontalPaddingBackground)
+                                .padding(.bottom, Theme.separatorVerticalPadding - Theme.horizontalPaddingBackground)
                             }
                             .background(
                                 scrap.id == documentManager.focusedScrapID ?
@@ -52,11 +49,13 @@ struct MainView: View {
                                     Color.clear
                             )
                             .cornerRadius(12)
-                            .padding(.horizontal, Theme.horizontalPadding)
+                            .padding(.horizontal, Theme.horizontalPaddingBackground)
                             .id(scrap.id)
+                            .padding(.top, Theme.textSize)
                         }
                     }
                     .padding(.top, Theme.isIPadOrMac ? verticalPadding / 2 : verticalPadding)
+                    .padding(.bottom, Theme.textSize * 2)
                     .background(
                         GeometryReader { geometry in
                             Color.clear.preference(
