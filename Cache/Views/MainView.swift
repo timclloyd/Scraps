@@ -55,7 +55,7 @@ struct MainView: View {
                         }
                     }
                     .padding(.top, Theme.isIPadOrMac ? verticalPadding / 2 : verticalPadding)
-                    .padding(.bottom, Theme.textSize * 2)
+                    .padding(.bottom, Theme.textSize)
                     .background(
                         GeometryReader { geometry in
                             Color.clear.preference(

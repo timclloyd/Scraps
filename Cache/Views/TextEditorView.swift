@@ -58,6 +58,9 @@ struct TextEditorView: UIViewRepresentable {
             }
         }
 
+        // Store reference in coordinator for keyboard notification
+        context.coordinator.textView = textView
+
         return textView
     }
 
@@ -85,19 +88,39 @@ struct TextEditorView: UIViewRepresentable {
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: TextEditorView
         var hasFocused = false
+        weak var textView: UITextView?
 
         init(_ parent: TextEditorView) {
             self.parent = parent
+            super.init()
+
+            // Listen for keyboard appearing to adjust scroll position
+            NotificationCenter.default.addObserver(
+                forName: UIResponder.keyboardDidShowNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                // After keyboard appears, adjust scroll to add padding
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    guard let self = self, let textView = self.textView, textView.isFirstResponder else { return }
+                    self.scrollToKeepCursorVisible(in: textView)
+                }
+            }
         }
 
         func textViewDidChange(_ textView: UITextView) {
             parent.text = textView.text
+            // Also keep cursor visible when text changes (e.g., typing newlines)
+            // Force layout update, then scroll after a tiny delay to override iOS's automatic scroll
+            textView.layoutIfNeeded()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                self.scrollToKeepCursorVisible(in: textView)
+            }
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
-            // Auto-scroll to keep cursor visible during keyboard navigation
-            // Without this, arrow keys move cursor but view doesn't scroll (poor UX on macOS)
-            textView.scrollRangeToVisible(textView.selectedRange)
+            // Keep cursor visible with comfortable padding above keyboard
+            scrollToKeepCursorVisible(in: textView)
         }
 
         func textViewDidBeginEditing(_ textView: UITextView) {
@@ -105,6 +128,41 @@ struct TextEditorView: UIViewRepresentable {
             if let scrapID = parent.scrapID {
                 parent.onBecomeFocused?(scrapID)
             }
+        }
+
+        private func scrollToKeepCursorVisible(in textView: UITextView) {
+            guard let selectedRange = textView.selectedTextRange else { return }
+
+            // Get cursor position rect
+            var cursorRect = textView.caretRect(for: selectedRange.start)
+
+            // Add padding below the cursor (3-5 line heights)
+            let desiredPadding = Theme.textSize * 2 // lines of space below cursor
+            cursorRect.size.height += desiredPadding
+
+            // Find the parent UIScrollView
+            guard let scrollView = findParentScrollView(from: textView) else {
+                // Fallback to default behavior if we can't find scroll view
+                textView.scrollRangeToVisible(textView.selectedRange)
+                return
+            }
+
+            // Convert cursor rect to scroll view's coordinate space
+            let rectInScrollView = textView.convert(cursorRect, to: scrollView)
+
+            // Scroll to make the padded rect visible
+            scrollView.scrollRectToVisible(rectInScrollView, animated: true)
+        }
+
+        private func findParentScrollView(from view: UIView) -> UIScrollView? {
+            var currentView: UIView? = view.superview
+            while let view = currentView {
+                if let scrollView = view as? UIScrollView {
+                    return scrollView
+                }
+                currentView = view.superview
+            }
+            return nil
         }
     }
 }
