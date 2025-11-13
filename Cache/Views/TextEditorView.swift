@@ -136,9 +136,9 @@ struct TextEditorView: UIViewRepresentable {
             // Get cursor position rect
             var cursorRect = textView.caretRect(for: selectedRange.start)
 
-            // Add padding below the cursor (3-5 line heights)
-            let desiredPadding = Theme.textSize * 2 // lines of space below cursor
-            cursorRect.size.height += desiredPadding
+            // Add padding above and below the cursor
+            cursorRect.origin.y -= Preferences.cursorScrollPadding  // Move rect up to add padding above
+            cursorRect.size.height += Preferences.cursorScrollPadding * 2  // Extend height for padding both above and below
 
             // Find the parent UIScrollView
             guard let scrollView = findParentScrollView(from: textView) else {
