@@ -19,7 +19,7 @@
 - [x] Remove auto removal of empty scraps. If an empty scrap is created, it should persist and a second empty scrap should not be created.
 - [ ] Add a way to delete a scrap / all scraps
 - [ ] Add haptics on scrap creation
-- [ ] Try again to auto scroll to cursor with bottom padding
+- [x] Try again to auto scroll to cursor with bottom padding
 
 - [ ] Improve the separator design
 - [ ] Make the initial launch to text input faster
