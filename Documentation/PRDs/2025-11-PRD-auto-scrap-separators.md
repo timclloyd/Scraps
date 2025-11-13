@@ -1,6 +1,6 @@
 # PRD: Automatic Scrap Separators
 
-**Status:** Implementation In Progress
+**Status:** Implemented
 
 ---
 
