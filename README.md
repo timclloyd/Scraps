@@ -6,15 +6,19 @@ A super fast, minimal app for capturing thoughts and ideas in plain text. Syncs 
 
 ## Features
 
-- **iCloud sync** - automatic sync across all your devices using UIDocument
+- **Multi-document architecture** - each scrap is a separate timestamped text file
+- **iCloud sync** - automatic sync across all devices using UIDocument
 - **Minimal, distraction-free** text input
-- **Cross-platform** - iPhone, iPad, and macOS support with platform-optimized UI
-- **Auto-highlighting** for keywords (idea, fun)
+- **Cross-platform** - iPhone, iPad, and macOS with platform-optimized UI
+- **Auto-highlighting** for keywords (idea, fun, todo, remember, important, interesting, later)
 - **Automatic URL detection** with tap support
+- **Auto-datestamp separators** - visual timestamps between scraps
 - **Shake to clear** with confirmation dialog
-- **Automatic saving** with debounced writes (2s after typing stops)
+- **Immediate automatic saving** - saves on every text change (UIDocument handles coalescing internally)
 - **Dark mode** support
-- **Gradient fade effects** - smart top/bottom gradients that adapt to device type
+- **Gradient fade effects** - adaptive to device type
+- **Smart scrap creation** - new scrap after 5 minutes of inactivity
+- **Auto-cleanup** - empty scraps deleted automatically
 
 ## Project Structure
 
@@ -42,6 +46,13 @@ Built with SwiftUI and UIKit. Universal app supporting iPhone, iPad, and macOS (
 
 ## Architecture
 
+### Multi-Document Model
+Unlike typical note apps with a single file, Scraps uses multiple text documents (one per scrap):
+- Each scrap is a separate `.txt` file: `scrap-YYYY-MM-DD-HHmmss.txt`
+- Files are sorted chronologically (oldest first)
+- New scraps auto-created after 5 minutes of inactivity
+- Empty scraps automatically deleted on backgrounding
+
 ### UI Layer
 - SwiftUI with custom UIKit components where needed
 - Custom UITextView wrapper for enhanced text editing and gesture support
@@ -50,11 +61,14 @@ Built with SwiftUI and UIKit. Universal app supporting iPhone, iPad, and macOS (
 ### Text Processing
 - Custom NSLayoutManager for real-time syntax highlighting
 - Efficient line-based regex processing (only processes changed content)
+- Keyword highlighting: idea, fun, todo, remember, important, interesting, later
 
 ### Sync & Persistence
 - **UIDocument-based iCloud sync** for reliable cross-device synchronization
+- **ScenePhase lifecycle management** for correct save timing (handles macOS Cmd+Q)
+- **Immediate saves** on every text change (no debounce) - UIDocument coalesces internally
 - Automatic NSFileCoordinator usage (required for iCloud daemon detection)
 - Last-writer-wins conflict resolution
 - Offline support with local caching
 
-See `icloud-sync-best-practices.md` for detailed sync implementation patterns.
+See `Documentation/icloud-sync-best-practices.md` for detailed sync implementation patterns.
