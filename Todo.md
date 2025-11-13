@@ -1,19 +1,5 @@
 # Todo
 
-## Recently Completed ✓
-
-- [x] **iCloud sync implementation** - switched to UIDocument for reliable cross-device sync
-- [x] **Conflict resolution fix** - properly mark all conflict versions as resolved (prevents quota issues)
-- [x] **Code comments audit** - improved all comments to explain WHY not just WHAT
-- [x] **Cross-platform UI fixes** - platform-aware padding and gradients for iPhone/iPad/macOS
-- [x] **Scroll behavior** - fixed arrow key navigation on macOS with cursor tracking
-- [x] **Fix struct name** - renamed to ScrapsApp (matches app name)
-- [x] **Typing lag fix** - removed redundant TextLineManager (was causing sync disk I/O on every keystroke)
-- [x] **Smart regex processing** - only processes changed lines instead of entire document
-- [x] **URL highlighting** - automatic detection and tap support
-- [x] **Color scheme** - warmer accent colors implemented
-- [x] **App naming** - settled on "Scraps"
-
 ## Performance Optimization
 
 - [ ] Cache highlight patterns - avoid recreating UIColors on every init
@@ -24,15 +10,28 @@
 - [ ] Add tests for highlight/theme logic
 - [ ] Implement UI tests (UITests.swift is currently empty)
 
+## Bugs
+
+- [ ] There's no way for the scraps list to update to another device while the app is open on that other device
+
 ## Features & Polish
 
+- [x] Remove auto removal of empty scraps. If an empty scrap is created, it should persist and a second empty scrap should not be created.
+- [ ] Add a way to delete a scrap / all scraps
+- [ ] Add haptics on scrap creation
+- [x] Try again to auto scroll to cursor with bottom padding
+
+- [ ] Improve the separator design
 - [ ] Make the initial launch to text input faster
 	- currently slow due to
 		- kb show animation
 		- visible scroll to bottom; worse with longer text
+- [ ] Fine-tune text color tinting with accent color?
+
+## Deployment
+
 - [ ] Design App Store assets and text
 - [ ] Deploy to the App Store
-- [ ] Fine-tune text color tinting with accent color?
 
 # Ideas
 

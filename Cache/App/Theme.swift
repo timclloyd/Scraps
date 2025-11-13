@@ -33,8 +33,13 @@ enum Theme {
 
     // Layout
     static let textSize: CGFloat = 16
-    static let horizontalPadding: CGFloat = 8
+    static let horizontalPadding: CGFloat = 16
+    static let horizontalPaddingBackground: CGFloat = 4
     static let verticalPadding: CGFloat = 48
+
+    // Separator
+    static let separatorFontSize: CGFloat = 12
+    static let separatorVerticalPadding: CGFloat = 24
 
     static let highlightColorLight = UIColor(
         hue: 24/360,
@@ -65,6 +70,23 @@ enum Theme {
     )
     
     static let linkColor = UIColor.systemGray3
+
+    static let separatorColor = UIColor { traitCollection in
+        switch traitCollection.userInterfaceStyle {
+        case .dark:
+            return UIColor.systemGray5
+        default:
+            return UIColor.systemGray3
+        }
+    }
+
+    static let focusBackgroundColorLight = UIColor(
+        Color(UIColor.systemGray6.withAlphaComponent(0.67))
+    )
+
+    static let focusBackgroundColorDark = UIColor(
+        Color(UIColor.systemGray6.withAlphaComponent(0.67))
+    )
     
     static func dynamicHighlightColor(for traitCollection: UITraitCollection) -> UIColor {
         UIColor { traitCollection in
@@ -84,6 +106,17 @@ enum Theme {
                 return cursorColorDark
             default:
                 return cursorColorLight
+            }
+        }
+    }
+
+    static func dynamicFocusBackgroundColor(for traitCollection: UITraitCollection) -> UIColor {
+        UIColor { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .dark:
+                return focusBackgroundColorDark
+            default:
+                return focusBackgroundColorLight
             }
         }
     }

@@ -21,9 +21,13 @@ struct ScrapsApp: App {
         .onChange(of: scenePhase) { oldPhase, newPhase in
             switch newPhase {
             case .background, .inactive:
-                // Save immediately when app backgrounds or becomes inactive
-                documentManager.saveDocument()
+                // Save all scraps when app backgrounds or becomes inactive
+                documentManager.saveAllDocuments()
+                // Save timestamp for scrap creation logic
+                documentManager.saveLastCloseTime()
             case .active:
+                // Reset background flag for next cycle
+                documentManager.resetBackgroundFlag()
                 // Check for updates when app becomes active
                 documentManager.checkForUpdates()
             @unknown default:
