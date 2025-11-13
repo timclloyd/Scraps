@@ -29,8 +29,15 @@ class DocumentManager: ObservableObject {
             guard let self = self else { return }
 
             if self.shouldCreateNewScrap() {
-                // Long absence - create new scrap and focus it
-                self.focusedScrapID = self.scraps.last?.id
+                // Long absence - check if last scrap is empty and replace if needed
+                if let lastScrap = self.scraps.last {
+                    let trimmedText = lastScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmedText.isEmpty {
+                        // Delete the old empty scrap
+                        self.deleteScrap(lastScrap)
+                    }
+                }
+                // Create new scrap and it will be auto-focused
                 self.checkAndCreateNewScrapIfNeeded()
             } else {
                 // Quick return or first launch - restore previous focus using filename
@@ -221,7 +228,16 @@ class DocumentManager: ObservableObject {
             return
         }
 
-        // Create new scrap (even if last one is empty - we'll clean up empty scraps on save)
+        // Check if the last scrap is empty - if so, replace it with a fresh timestamped one
+        if let lastScrap = scraps.last {
+            let trimmedText = lastScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedText.isEmpty {
+                // Delete the old empty scrap and create a new one with current timestamp
+                deleteScrap(lastScrap)
+            }
+        }
+
+        // Create new scrap with current timestamp
         createNewScrap()
 
         // Clear the last close time so we don't create another scrap on the next check
@@ -245,24 +261,8 @@ class DocumentManager: ObservableObject {
 
     func saveAllDocuments() {
         // Save all scraps (called when app backgrounds)
-        // Also clean up empty scraps
-        var scrapsToDelete: [Scrap] = []
-
         for scrap in scraps {
-            let trimmedText = scrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            if trimmedText.isEmpty {
-                // Mark for deletion
-                scrapsToDelete.append(scrap)
-            } else {
-                // Save non-empty scrap
-                saveDocument(scrap)
-            }
-        }
-
-        // Delete empty scraps
-        for scrap in scrapsToDelete {
-            deleteScrap(scrap)
+            saveDocument(scrap)
         }
     }
 
