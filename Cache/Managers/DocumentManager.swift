@@ -2,10 +2,12 @@ import Foundation
 import Combine
 import UIKit
 
+@MainActor
 class DocumentManager: ObservableObject {
     @Published var scraps: [Scrap] = []
     @Published var focusedScrapID: UUID?
     @Published var focusedScrapFilename: String?
+    @Published var isReady = false
 
     private var documentObservers: [NSObjectProtocol] = []
 
@@ -14,7 +16,6 @@ class DocumentManager: ObservableObject {
     private let lastFocusedScrapFilenameKey = "lastFocusedScrapFilename"
     private var hasBackgrounded = false
     private var isInitialLoad = true
-    var shouldSaveFocusChanges = false  // Internal so ScrapView can check it
 
     private var documentsDirectoryURL: URL? {
         guard let containerURL = FileManager.default.url(forUbiquityContainerIdentifier: nil) else {
@@ -24,51 +25,62 @@ class DocumentManager: ObservableObject {
     }
 
     init() {
-        // Load existing scraps first, then check if we need a new one
-        loadScraps { [weak self] in
-            guard let self = self else { return }
+        // Perform async initialization in a task
+        Task {
+            // Step 1: Load existing scraps
+            await loadScraps()
 
-            if self.shouldCreateNewScrap() {
+            // Step 2: Check if we need to create a new scrap
+            if shouldCreateNewScrap() {
                 // Long absence - check if last scrap is empty and replace if needed
-                if let lastScrap = self.scraps.last {
+                if let lastScrap = scraps.last {
                     let trimmedText = lastScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
                     if trimmedText.isEmpty {
-                        // Delete the old empty scrap
-                        self.deleteScrap(lastScrap)
+                        // Delete the old empty scrap before creating new one
+                        await deleteScrap(lastScrap)
                     }
                 }
-                // Create new scrap and it will be auto-focused
-                self.checkAndCreateNewScrapIfNeeded()
+
+                // Create new scrap and wait for it to complete
+                if let newScrap = await createNewScrap() {
+                    // Set focus to the newly created scrap
+                    focusedScrapID = newScrap.id
+                    focusedScrapFilename = newScrap.filename
+                }
+
+                // Clear the last close time
+                UserDefaults.standard.removeObject(forKey: lastCloseTimeKey)
+            } else if scraps.isEmpty {
+                // No scraps at all - create first one
+                if let newScrap = await createNewScrap() {
+                    focusedScrapID = newScrap.id
+                    focusedScrapFilename = newScrap.filename
+                }
             } else {
-                // Quick return or first launch - restore previous focus using filename
-                let savedFilename = UserDefaults.standard.string(forKey: self.lastFocusedScrapFilenameKey)
+                // Quick return - restore previous focus using filename
+                let savedFilename = UserDefaults.standard.string(forKey: lastFocusedScrapFilenameKey)
 
                 if let savedFilename = savedFilename,
-                   let savedScrap = self.scraps.first(where: { $0.filename == savedFilename }) {
+                   let savedScrap = scraps.first(where: { $0.filename == savedFilename }) {
                     // Restore focus to previously focused scrap
-                    self.focusedScrapID = savedScrap.id
-                    self.focusedScrapFilename = savedFilename
+                    focusedScrapID = savedScrap.id
+                    focusedScrapFilename = savedFilename
                 } else {
                     // First launch or saved scrap no longer exists - focus last scrap
-                    self.focusedScrapID = self.scraps.last?.id
-                    self.focusedScrapFilename = self.scraps.last?.filename
+                    focusedScrapID = scraps.last?.id
+                    focusedScrapFilename = scraps.last?.filename
                 }
             }
 
-            self.isInitialLoad = false
-
-            // Enable saving focus changes after initial load completes
-            // This prevents auto-focus from overwriting the saved ID
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.shouldSaveFocusChanges = true
-            }
+            // Step 3: Mark initialization as complete
+            isInitialLoad = false
+            isReady = true
         }
     }
 
-    private func loadScraps(completion: @escaping () -> Void) {
+    private func loadScraps() async {
         guard let documentsURL = documentsDirectoryURL else {
             print("Error: Could not get iCloud documents directory URL")
-            completion()
             return
         }
 
@@ -78,7 +90,6 @@ class DocumentManager: ObservableObject {
                 try FileManager.default.createDirectory(at: documentsURL, withIntermediateDirectories: true)
             } catch {
                 print("Error creating Documents directory: \(error)")
-                completion()
                 return
             }
         }
@@ -93,14 +104,12 @@ class DocumentManager: ObservableObject {
             let scrapFiles = contents.filter { $0.lastPathComponent.hasPrefix("scrap-") && $0.lastPathComponent.hasSuffix(".txt") }
 
             if scrapFiles.isEmpty {
-                // No scraps exist, create first one
-                createNewScrap()
-                completion()
-            } else {
-                // Load existing scraps
-                var loadedScraps: [Scrap] = []
-                let group = DispatchGroup()
+                // No scraps exist, will create first one in init
+                return
+            }
 
+            // Open all documents concurrently
+            let loadedScraps = await withTaskGroup(of: (Scrap, Bool).self, returning: [Scrap].self) { group in
                 for fileURL in scrapFiles {
                     let filename = fileURL.lastPathComponent
 
@@ -111,51 +120,55 @@ class DocumentManager: ObservableObject {
 
                     let document = TextDocument(fileURL: fileURL)
                     let scrap = Scrap(timestamp: timestamp, filename: filename, document: document)
-                    loadedScraps.append(scrap)
 
-                    // Track document opening
-                    group.enter()
-
-                    // Open document
-                    document.open { [weak self] success in
-                        defer { group.leave() }
-
-                        if success {
-                            // Attach observer for state changes
-                            let observer = NotificationCenter.default.addObserver(
-                                forName: UIDocument.stateChangedNotification,
-                                object: document,
-                                queue: .main
-                            ) { [weak self] notification in
-                                self?.handleDocumentStateChanged(notification)
+                    group.addTask {
+                        let success = await withCheckedContinuation { continuation in
+                            document.open { success in
+                                continuation.resume(returning: success)
                             }
-                            self?.documentObservers.append(observer)
-                        } else {
-                            print("Error: Failed to open scrap: \(filename)")
                         }
+                        return (scrap, success)
                     }
                 }
 
-                // Wait for all documents to open, then update UI
-                group.notify(queue: .main) { [weak self] in
-                    // Sort by timestamp (oldest first)
-                    loadedScraps.sort { $0.timestamp < $1.timestamp }
-                    self?.scraps = loadedScraps
-                    completion()
+                // Collect results into array
+                var results: [Scrap] = []
+                for await (scrap, success) in group {
+                    if success {
+                        results.append(scrap)
+                    } else {
+                        print("Error: Failed to open scrap: \(scrap.filename)")
+                    }
                 }
+                return results
             }
+
+            // Attach observers
+            for scrap in loadedScraps {
+                let observer = NotificationCenter.default.addObserver(
+                    forName: UIDocument.stateChangedNotification,
+                    object: scrap.document,
+                    queue: .main
+                ) { [weak self] notification in
+                    MainActor.assumeIsolated {
+                        self?.handleDocumentStateChanged(notification)
+                    }
+                }
+                self.documentObservers.append(observer)
+            }
+
+            // Sort by timestamp (oldest first) and update UI
+            self.scraps = loadedScraps.sorted { $0.timestamp < $1.timestamp }
         } catch {
             print("Error enumerating scrap files: \(error)")
-            // Create first scrap if enumeration fails
-            createNewScrap()
-            completion()
         }
     }
 
-    func createNewScrap() {
+    @discardableResult
+    func createNewScrap() async -> Scrap? {
         guard let documentsURL = documentsDirectoryURL else {
             print("Error: Could not get documents directory URL")
-            return
+            return nil
         }
 
         let now = Date()
@@ -164,28 +177,34 @@ class DocumentManager: ObservableObject {
         let document = TextDocument(fileURL: fileURL)
         let scrap = Scrap(timestamp: now, filename: filename, document: document)
 
-        document.save(to: fileURL, for: .forCreating) { [weak self] success in
-            if success {
-                // Attach observer
-                let observer = NotificationCenter.default.addObserver(
-                    forName: UIDocument.stateChangedNotification,
-                    object: document,
-                    queue: .main
-                ) { [weak self] notification in
+        let success = await withCheckedContinuation { continuation in
+            document.save(to: fileURL, for: .forCreating) { success in
+                continuation.resume(returning: success)
+            }
+        }
+
+        if success {
+            // Attach observer
+            let observer = NotificationCenter.default.addObserver(
+                forName: UIDocument.stateChangedNotification,
+                object: document,
+                queue: .main
+            ) { [weak self] notification in
+                MainActor.assumeIsolated {
                     self?.handleDocumentStateChanged(notification)
                 }
-                self?.documentObservers.append(observer)
-
-                DispatchQueue.main.async {
-                    self?.scraps.append(scrap)
-                    // Sort to ensure chronological order (oldest first)
-                    self?.scraps.sort { $0.timestamp < $1.timestamp }
-                    // Set focus to the newly created scrap
-                    self?.focusedScrapID = scrap.id
-                }
-            } else {
-                print("Error: Failed to create new scrap")
             }
+            self.documentObservers.append(observer)
+
+            // Update UI
+            self.scraps.append(scrap)
+            // Sort to ensure chronological order (oldest first)
+            self.scraps.sort { $0.timestamp < $1.timestamp }
+
+            return scrap
+        } else {
+            print("Error: Failed to create new scrap")
+            return nil
         }
     }
 
@@ -223,26 +242,6 @@ class DocumentManager: ObservableObject {
         return elapsed > Preferences.newScrapThresholdSeconds
     }
 
-    private func checkAndCreateNewScrapIfNeeded() {
-        guard shouldCreateNewScrap() else {
-            return
-        }
-
-        // Check if the last scrap is empty - if so, replace it with a fresh timestamped one
-        if let lastScrap = scraps.last {
-            let trimmedText = lastScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmedText.isEmpty {
-                // Delete the old empty scrap and create a new one with current timestamp
-                deleteScrap(lastScrap)
-            }
-        }
-
-        // Create new scrap with current timestamp
-        createNewScrap()
-
-        // Clear the last close time so we don't create another scrap on the next check
-        UserDefaults.standard.removeObject(forKey: lastCloseTimeKey)
-    }
 
     func textDidChange(for scrap: Scrap, newText: String) {
         scrap.document.updateText(newText)
@@ -266,18 +265,20 @@ class DocumentManager: ObservableObject {
         }
     }
 
-    private func deleteScrap(_ scrap: Scrap) {
+    private func deleteScrap(_ scrap: Scrap) async {
         // Close and delete the document
-        scrap.document.close { [weak self] success in
-            guard let self = self else { return }
+        let success = await withCheckedContinuation { continuation in
+            scrap.document.close { success in
+                continuation.resume(returning: success)
+            }
+        }
 
+        if success {
             do {
                 try FileManager.default.removeItem(at: scrap.document.fileURL)
 
                 // Remove from array
-                DispatchQueue.main.async {
-                    self.scraps.removeAll { $0.id == scrap.id }
-                }
+                self.scraps.removeAll { $0.id == scrap.id }
             } catch {
                 print("Error deleting scrap file: \(error)")
             }
@@ -293,10 +294,25 @@ class DocumentManager: ObservableObject {
         guard shouldCreateNewScrap() else { return }
 
         // Reload scraps from disk to catch any changes, then create new scrap
-        loadScraps { [weak self] in
-            guard let self = self else { return }
-            // Focus will be set to new scrap when creation completes
-            self.checkAndCreateNewScrapIfNeeded()
+        Task {
+            await loadScraps()
+
+            // Check if last scrap is empty and replace if needed
+            if let lastScrap = scraps.last {
+                let trimmedText = lastScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmedText.isEmpty {
+                    await deleteScrap(lastScrap)
+                }
+            }
+
+            // Create new scrap
+            if let newScrap = await createNewScrap() {
+                focusedScrapID = newScrap.id
+                focusedScrapFilename = newScrap.filename
+            }
+
+            // Clear the last close time
+            UserDefaults.standard.removeObject(forKey: lastCloseTimeKey)
         }
     }
 
@@ -338,19 +354,15 @@ class DocumentManager: ObservableObject {
         // SwiftUI will observe changes to the document's text property
         if document.documentState.contains(.editingDisabled) == false {
             // Force SwiftUI to refresh by triggering objectWillChange
-            DispatchQueue.main.async { [weak self] in
-                self?.objectWillChange.send()
-            }
+            // Already on main actor, no dispatch needed
+            self.objectWillChange.send()
         }
     }
 
-    deinit {
-        // Close all documents
-        for scrap in scraps {
-            scrap.document.close(completionHandler: nil)
-        }
-
+    nonisolated deinit {
         // Remove all observers
+        // Note: We can't access @MainActor properties like scraps here,
+        // so document cleanup should happen elsewhere (e.g., when app backgrounds)
         for observer in documentObservers {
             NotificationCenter.default.removeObserver(observer)
         }

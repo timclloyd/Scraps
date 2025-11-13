@@ -30,8 +30,8 @@ struct ScrapView: View {
             onBecomeFocused: { scrapID in
                 documentManager.focusedScrapID = scrapID
                 documentManager.focusedScrapFilename = scrap.filename
-                // Only save if initial load is complete (prevents auto-focus from overwriting saved filename)
-                if documentManager.shouldSaveFocusChanges {
+                // Save focus only if initialization is complete
+                if documentManager.isReady {
                     UserDefaults.standard.set(scrap.filename, forKey: "lastFocusedScrapFilename")
                 }
             }

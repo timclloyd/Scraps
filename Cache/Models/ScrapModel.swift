@@ -1,6 +1,6 @@
 import Foundation
 
-struct Scrap: Identifiable {
+struct Scrap: Identifiable, Sendable {
     let id: UUID
     let timestamp: Date
     let filename: String

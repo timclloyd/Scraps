@@ -68,14 +68,12 @@ struct TextEditorView: UIViewRepresentable {
         }
 
         // Auto-focus only if this is marked for initial focus and hasn't focused yet
-        // Delay to ensure scrolling completes first (avoids keyboard flicker during scroll animation)
+        // No delay needed - proper sequencing ensures scroll completes before focus
         if isInitialFocus && !context.coordinator.hasFocused && !uiView.isFirstResponder {
             context.coordinator.hasFocused = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                // Double-check view is still in hierarchy before focusing
-                if uiView.superview != nil {
-                    uiView.becomeFirstResponder()
-                }
+            // Double-check view is still in hierarchy before focusing
+            if uiView.superview != nil {
+                uiView.becomeFirstResponder()
             }
         }
     }

@@ -74,20 +74,10 @@ struct MainView: View {
                         isScrolledToTop = newValue
                     }
                 }
-                .onChange(of: documentManager.scraps.count) { oldCount, newCount in
-                    // Scroll to bottom when scraps change
-                    if let lastScrap = documentManager.scraps.last {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            proxy.scrollTo(lastScrap.id, anchor: .bottom)
-                        }
-                    }
-                }
-                .onAppear {
-                    // Scroll to latest scrap on initial load
-                    if let lastScrap = documentManager.scraps.last {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            proxy.scrollTo(lastScrap.id, anchor: .bottom)
-                        }
+                .onChange(of: documentManager.isReady) { wasReady, isNowReady in
+                    // Scroll to last scrap once initialization is complete
+                    if isNowReady, let lastScrap = documentManager.scraps.last {
+                        proxy.scrollTo(lastScrap.id, anchor: .bottom)
                     }
                 }
             }
