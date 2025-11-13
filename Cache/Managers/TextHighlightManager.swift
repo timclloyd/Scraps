@@ -29,31 +29,31 @@ class TextHighlightManager: NSLayoutManager {
     let patterns: [HighlightPattern] = [
         HighlightPattern(
             pattern: "\\bidea[a-zA-Z]*",  // "idea", "ideas", etc.
-            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+            backgroundColor: Theme.highlightColor(for: UITraitCollection.current)
         ),
         HighlightPattern(
             pattern: "\\bfun\\b",
-            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+            backgroundColor: Theme.highlightColor(for: UITraitCollection.current)
         ),
         HighlightPattern(
             pattern: "\\btodo\\b",
-            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+            backgroundColor: Theme.highlightColor(for: UITraitCollection.current)
         ),
         HighlightPattern(
             pattern: "\\bremember\\b",
-            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+            backgroundColor: Theme.highlightColor(for: UITraitCollection.current)
         ),
         HighlightPattern(
             pattern: "\\bimportant\\b",
-            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+            backgroundColor: Theme.highlightColor(for: UITraitCollection.current)
         ),
         HighlightPattern(
             pattern: "\\binteresting\\b",
-            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+            backgroundColor: Theme.highlightColor(for: UITraitCollection.current)
         ),
         HighlightPattern(
             pattern: "\\blater\\b",
-            backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
+            backgroundColor: Theme.highlightColor(for: UITraitCollection.current)
         )
     ].compactMap { $0 }
 

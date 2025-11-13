@@ -8,9 +8,96 @@
 import SwiftUI
 
 enum Theme {
+    
+    //MARK: Fonts
+    
+    static let textSize: CGFloat = 16
     static let font = "RobotoMono-Regular"
 
-    // Platform detection
+    //MARK: Layout
+    
+    static let horizontalPadding: CGFloat = 16
+    static let horizontalPaddingBackground: CGFloat = 4
+    static let verticalPadding: CGFloat = 48
+
+    static let separatorFontSize: CGFloat = 12
+    static let separatorVerticalPadding: CGFloat = 24
+
+    static let topFadeHeight: CGFloat = 48
+    static let bottomFadeHeight: CGFloat = 48
+    
+    /// Vertical padding to maintain above and below the cursor when scrolling
+    /// Ensures cursor stays comfortably visible away from screen edges and keyboard
+    static let cursorScrollPadding: CGFloat = textSize * 2
+    
+    //MARK: Colours
+    
+    static let linkColor = UIColor.systemGray3
+
+    static let separatorColor = UIColor { traitCollection in
+        switch traitCollection.userInterfaceStyle {
+        case .dark:
+            return UIColor.systemGray5
+        default:
+            return UIColor.systemGray3
+        }
+    }
+    
+    static func highlightColor(for traitCollection: UITraitCollection) -> UIColor {
+        UIColor { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .dark:
+                return UIColor(
+                    hue: 23/360,
+                    saturation: 0.6,
+                    brightness: 0.35,
+                    alpha: 1.0
+                )
+            default:
+                return UIColor(
+                    hue: 24/360,
+                    saturation: 0.17,
+                    brightness: 1.0,
+                    alpha: 1.0
+                )
+            }
+        }
+    }
+    
+    static func cursorColor(for traitCollection: UITraitCollection) -> UIColor {
+        UIColor { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .dark:
+                return UIColor(
+                    hue: 23/360,
+                    saturation: 0.6,
+                    brightness: 1.0,
+                    alpha: 1.0
+                )
+            default:
+                return UIColor(
+                    hue: 23/360,
+                    saturation: 0.8,
+                    brightness: 1.0,
+                    alpha: 1.0
+                )
+            }
+        }
+    }
+
+    // Background of focused scrap
+    static func focusBackgroundColor(for traitCollection: UITraitCollection) -> UIColor {
+        UIColor { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .dark:
+                return UIColor.systemGray6.withAlphaComponent(0.67)
+            default:
+                return UIColor.systemGray6.withAlphaComponent(0.67)
+            }
+        }
+    }
+    
+    //MARK: Platform detection
     static var isIPhone: Bool {
         #if os(iOS)
         return UIDevice.current.userInterfaceIdiom == .phone
@@ -29,95 +116,5 @@ enum Theme {
         #else
         return false
         #endif
-    }
-
-    // Layout
-    static let textSize: CGFloat = 16
-    static let horizontalPadding: CGFloat = 16
-    static let horizontalPaddingBackground: CGFloat = 4
-    static let verticalPadding: CGFloat = 48
-
-    // Separator
-    static let separatorFontSize: CGFloat = 12
-    static let separatorVerticalPadding: CGFloat = 24
-
-    static let highlightColorLight = UIColor(
-        hue: 24/360,
-        saturation: 0.17,
-        brightness: 1.0,
-        alpha: 1.0
-    )
-    
-    static let highlightColorDark = UIColor(
-        hue: 23/360,
-        saturation: 0.6,
-        brightness: 0.35,
-        alpha: 1.0
-    )
-    
-    static let cursorColorLight = UIColor(
-        hue: 23/360,
-        saturation: 0.8,
-        brightness: 1.0,
-        alpha: 1.0
-    )
-    
-    static let cursorColorDark = UIColor(
-        hue: 23/360,
-        saturation: 0.6,
-        brightness: 1.0,
-        alpha: 1.0
-    )
-    
-    static let linkColor = UIColor.systemGray3
-
-    static let separatorColor = UIColor { traitCollection in
-        switch traitCollection.userInterfaceStyle {
-        case .dark:
-            return UIColor.systemGray5
-        default:
-            return UIColor.systemGray3
-        }
-    }
-
-    static let focusBackgroundColorLight = UIColor(
-        Color(UIColor.systemGray6.withAlphaComponent(0.67))
-    )
-
-    static let focusBackgroundColorDark = UIColor(
-        Color(UIColor.systemGray6.withAlphaComponent(0.67))
-    )
-    
-    static func dynamicHighlightColor(for traitCollection: UITraitCollection) -> UIColor {
-        UIColor { traitCollection in
-            switch traitCollection.userInterfaceStyle {
-            case .dark:
-                return highlightColorDark
-            default:
-                return highlightColorLight
-            }
-        }
-    }
-    
-    static func dynamicCursorColor(for traitCollection: UITraitCollection) -> UIColor {
-        UIColor { traitCollection in
-            switch traitCollection.userInterfaceStyle {
-            case .dark:
-                return cursorColorDark
-            default:
-                return cursorColorLight
-            }
-        }
-    }
-
-    static func dynamicFocusBackgroundColor(for traitCollection: UITraitCollection) -> UIColor {
-        UIColor { traitCollection in
-            switch traitCollection.userInterfaceStyle {
-            case .dark:
-                return focusBackgroundColorDark
-            default:
-                return focusBackgroundColorLight
-            }
-        }
     }
 }

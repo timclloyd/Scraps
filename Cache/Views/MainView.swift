@@ -13,12 +13,6 @@ struct MainView: View {
     @EnvironmentObject var documentManager: DocumentManager
     @State private var isScrolledToTop = true
     @State private var keyboardHeight: CGFloat = 0
-
-    var textSize: CGFloat = Theme.textSize
-    var horizontalPadding: CGFloat = Theme.horizontalPadding
-    var verticalPadding: CGFloat = Theme.verticalPadding
-    var topFadeHeight: CGFloat = 48
-    var bottomFadeHeight: CGFloat = 48
     
     var body: some View {
         ZStack {
@@ -37,7 +31,7 @@ struct MainView: View {
                                 ScrapView(
                                     scrap: scrap,
                                     document: scrap.document,
-                                    font: UIFont(name: Theme.font, size: textSize) ?? UIFont.systemFont(ofSize: textSize),
+                                    font: UIFont(name: Theme.font, size: Theme.textSize) ?? UIFont.systemFont(ofSize: Theme.textSize),
                                     isInitialFocus: scrap.id == documentManager.focusedScrapID
                                 )
                                 .padding(.horizontal, Theme.horizontalPadding - Theme.horizontalPaddingBackground)
@@ -45,7 +39,7 @@ struct MainView: View {
                             }
                             .background(
                                 scrap.id == documentManager.focusedScrapID ?
-                                    Color(uiColor: Theme.dynamicFocusBackgroundColor(for: UITraitCollection.current)) :
+                                    Color(uiColor: Theme.focusBackgroundColor(for: UITraitCollection.current)) :
                                     Color.clear
                             )
                             .cornerRadius(12)
@@ -54,7 +48,7 @@ struct MainView: View {
                             .padding(.top, Theme.textSize)
                         }
                     }
-                    .padding(.top, Theme.isIPadOrMac ? verticalPadding / 2 : verticalPadding)
+                    .padding(.top, Theme.isIPadOrMac ? Theme.verticalPadding / 2 : Theme.verticalPadding)
                     .padding(.bottom, Theme.textSize)
                     .background(
                         GeometryReader { geometry in
@@ -102,7 +96,7 @@ struct MainView: View {
                     endPoint: .bottom,
                     curve: .easeOut
                 )
-                .frame(height: topFadeHeight)
+                .frame(height: Theme.topFadeHeight)
                 .opacity(Theme.isIPadOrMac ? 1 : (isScrolledToTop ? 0 : 1))
                 .animation(.easeOut(duration: 0.2), value: isScrolledToTop)
 
@@ -117,7 +111,7 @@ struct MainView: View {
                     endPoint: .bottom,
                     curve: .easeIn
                 )
-                .frame(height: bottomFadeHeight)
+                .frame(height: Theme.bottomFadeHeight)
             }
             .allowsHitTesting(false)
         }

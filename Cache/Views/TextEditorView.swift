@@ -137,8 +137,8 @@ struct TextEditorView: UIViewRepresentable {
             var cursorRect = textView.caretRect(for: selectedRange.start)
 
             // Add padding above and below the cursor
-            cursorRect.origin.y -= Preferences.cursorScrollPadding  // Move rect up to add padding above
-            cursorRect.size.height += Preferences.cursorScrollPadding * 2  // Extend height for padding both above and below
+            cursorRect.origin.y -= Theme.cursorScrollPadding         // Move rect up to add padding above
+            cursorRect.size.height += Theme.cursorScrollPadding * 2  // Extend height for padding both above and below
 
             // Find the parent UIScrollView
             guard let scrollView = findParentScrollView(from: textView) else {
@@ -194,7 +194,7 @@ class EnhancedTextView: UITextView {
         ]
 
         // Custom cursor color to match accent color scheme
-        tintColor = Theme.dynamicCursorColor(for: UITraitCollection.current)
+        tintColor = Theme.cursorColor(for: UITraitCollection.current)
 
         // Disable spell check to avoid red underlines (visual clutter)
         // but keep autocorrect suggestions for better typing experience
