@@ -13,6 +13,7 @@ struct MainView: View {
     @EnvironmentObject var documentManager: DocumentManager
     @State private var isScrolledToTop = true
     @State private var keyboardHeight: CGFloat = 0
+    @State private var keyboardObservers: [NSObjectProtocol] = []
     
     var body: some View {
         ZStack {
@@ -126,7 +127,9 @@ struct MainView: View {
     // MARK: - Keyboard Tracking
 
     private func subscribeToKeyboardNotifications() {
-        NotificationCenter.default.addObserver(
+        unsubscribeFromKeyboardNotifications()
+
+        let showObserver = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillShowNotification,
             object: nil,
             queue: .main
@@ -136,18 +139,22 @@ struct MainView: View {
             }
         }
 
-        NotificationCenter.default.addObserver(
+        let hideObserver = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillHideNotification,
             object: nil,
             queue: .main
         ) { _ in
             keyboardHeight = 0
         }
+
+        keyboardObservers = [showObserver, hideObserver]
     }
 
     private func unsubscribeFromKeyboardNotifications() {
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+        for observer in keyboardObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        keyboardObservers.removeAll()
     }
 
     // MARK: - Scroll Tracking

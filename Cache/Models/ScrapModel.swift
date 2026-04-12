@@ -6,6 +6,9 @@ struct Scrap: Identifiable, Sendable {
     let filename: String
     let document: TextDocument
 
+    private static let timestampFormat = "yyyy-MM-dd-HHmmss"
+    private static let utcSuffix = "Z"
+
     init(timestamp: Date, filename: String, document: TextDocument) {
         self.id = UUID()
         self.timestamp = timestamp
@@ -27,11 +30,11 @@ struct Scrap: Identifiable, Sendable {
             .replacingOccurrences(of: "scrap-", with: "")
             .replacingOccurrences(of: ".txt", with: "")
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd-HHmmss"
-        dateFormatter.timeZone = TimeZone.current
+        let isUTCEncoded = timestampString.hasSuffix(utcSuffix)
+        let rawTimestampString = isUTCEncoded ? String(timestampString.dropLast()) : timestampString
 
-        guard let parsed = dateFormatter.date(from: timestampString) else {
+        guard let parsed = makeDateFormatter(timeZone: isUTCEncoded ? TimeZone(secondsFromGMT: 0)! : TimeZone.current)
+            .date(from: rawTimestampString) else {
             print("Warning: Could not parse timestamp '\(timestampString)' from filename: \(filename)")
             return nil
         }
@@ -41,10 +44,19 @@ struct Scrap: Identifiable, Sendable {
 
     /// Generate filename for a new scrap with current timestamp
     static func generateFilename(for date: Date = Date()) -> String {
+        let timestamp = makeDateFormatter(timeZone: TimeZone(secondsFromGMT: 0)!).string(from: date)
+        return "scrap-\(timestamp)\(utcSuffix).txt"
+    }
+
+    static func isLegacyFilename(_ filename: String) -> Bool {
+        filename.hasPrefix("scrap-") && filename.hasSuffix(".txt") && filename.hasSuffix("\(utcSuffix).txt") == false
+    }
+
+    private static func makeDateFormatter(timeZone: TimeZone) -> DateFormatter {
         let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd-HHmmss"
-        dateFormatter.timeZone = TimeZone.current
-        let timestamp = dateFormatter.string(from: date)
-        return "scrap-\(timestamp).txt"
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.dateFormat = timestampFormat
+        dateFormatter.timeZone = timeZone
+        return dateFormatter
     }
 }

@@ -9,7 +9,7 @@ class DocumentManager: ObservableObject {
     @Published var focusedScrapFilename: String?
     @Published var isReady = false
 
-    private var documentObservers: [NSObjectProtocol] = []
+    private var documentObservers: [ObjectIdentifier: NSObjectProtocol] = [:]
 
     // Scrap creation tracking
     private let lastCloseTimeKey = "lastCloseTime"
@@ -101,7 +101,7 @@ class DocumentManager: ObservableObject {
                 includingPropertiesForKeys: nil
             )
 
-            let scrapFiles = contents.filter { $0.lastPathComponent.hasPrefix("scrap-") && $0.lastPathComponent.hasSuffix(".txt") }
+            let scrapFiles = try normalizeLegacyScrapFiles(in: contents)
 
             if scrapFiles.isEmpty {
                 // No scraps exist, will create first one in init
@@ -143,22 +143,7 @@ class DocumentManager: ObservableObject {
                 return results
             }
 
-            // Attach observers
-            for scrap in loadedScraps {
-                let observer = NotificationCenter.default.addObserver(
-                    forName: UIDocument.stateChangedNotification,
-                    object: scrap.document,
-                    queue: .main
-                ) { [weak self] notification in
-                    MainActor.assumeIsolated {
-                        self?.handleDocumentStateChanged(notification)
-                    }
-                }
-                self.documentObservers.append(observer)
-            }
-
-            // Sort by timestamp (oldest first) and update UI
-            self.scraps = loadedScraps.sorted { $0.timestamp < $1.timestamp }
+            await replaceLoadedScraps(with: loadedScraps)
         } catch {
             print("Error enumerating scrap files: \(error)")
         }
@@ -184,17 +169,7 @@ class DocumentManager: ObservableObject {
         }
 
         if success {
-            // Attach observer
-            let observer = NotificationCenter.default.addObserver(
-                forName: UIDocument.stateChangedNotification,
-                object: document,
-                queue: .main
-            ) { [weak self] notification in
-                MainActor.assumeIsolated {
-                    self?.handleDocumentStateChanged(notification)
-                }
-            }
-            self.documentObservers.append(observer)
+            attachObserver(to: document)
 
             // Update UI
             self.scraps.append(scrap)
@@ -266,6 +241,8 @@ class DocumentManager: ObservableObject {
     }
 
     private func deleteScrap(_ scrap: Scrap) async {
+        removeObserver(for: scrap.document)
+
         // Close and delete the document
         let success = await withCheckedContinuation { continuation in
             scrap.document.close { success in
@@ -283,6 +260,98 @@ class DocumentManager: ObservableObject {
                 print("Error deleting scrap file: \(error)")
             }
         }
+    }
+
+    private func replaceLoadedScraps(with loadedScraps: [Scrap]) async {
+        let previousScraps = scraps
+
+        for scrap in loadedScraps {
+            attachObserver(to: scrap.document)
+        }
+
+        scraps = loadedScraps.sorted { $0.timestamp < $1.timestamp }
+
+        await cleanupDocuments(for: previousScraps)
+    }
+
+    private func cleanupDocuments(for scraps: [Scrap]) async {
+        for scrap in scraps {
+            removeObserver(for: scrap.document)
+
+            let document = scrap.document
+            guard document.documentState.contains(.closed) == false else { continue }
+
+            await withCheckedContinuation { continuation in
+                document.close { _ in
+                    continuation.resume()
+                }
+            }
+        }
+    }
+
+    private func attachObserver(to document: TextDocument) {
+        let key = ObjectIdentifier(document)
+
+        guard documentObservers[key] == nil else { return }
+
+        let observer = NotificationCenter.default.addObserver(
+            forName: UIDocument.stateChangedNotification,
+            object: document,
+            queue: .main
+        ) { [weak self] notification in
+            MainActor.assumeIsolated {
+                self?.handleDocumentStateChanged(notification)
+            }
+        }
+
+        documentObservers[key] = observer
+    }
+
+    private func removeObserver(for document: TextDocument) {
+        let key = ObjectIdentifier(document)
+
+        guard let observer = documentObservers.removeValue(forKey: key) else { return }
+        NotificationCenter.default.removeObserver(observer)
+    }
+
+    private func normalizeLegacyScrapFiles(in contents: [URL]) throws -> [URL] {
+        var normalizedFiles: [URL] = []
+
+        for fileURL in contents where fileURL.lastPathComponent.hasPrefix("scrap-") && fileURL.lastPathComponent.hasSuffix(".txt") {
+            guard Scrap.isLegacyFilename(fileURL.lastPathComponent) else {
+                normalizedFiles.append(fileURL)
+                continue
+            }
+
+            guard let legacyTimestamp = Scrap.parseTimestamp(from: fileURL.lastPathComponent) else {
+                normalizedFiles.append(fileURL)
+                continue
+            }
+
+            let normalizedURL = fileURL.deletingLastPathComponent()
+                .appendingPathComponent(Scrap.generateFilename(for: legacyTimestamp))
+
+            guard normalizedURL != fileURL else {
+                normalizedFiles.append(fileURL)
+                continue
+            }
+
+            guard FileManager.default.fileExists(atPath: normalizedURL.path) == false else {
+                print("Warning: Skipping scrap filename normalization because destination exists: \(normalizedURL.lastPathComponent)")
+                normalizedFiles.append(fileURL)
+                continue
+            }
+
+            do {
+                try FileManager.default.moveItem(at: fileURL, to: normalizedURL)
+                normalizedFiles.append(normalizedURL)
+            } catch {
+                print("Warning: Failed to normalize legacy scrap filename \(fileURL.lastPathComponent): \(error)")
+                normalizedFiles.append(fileURL)
+            }
+        }
+
+        return normalizedFiles
     }
 
     func checkForUpdates() {
@@ -361,9 +430,7 @@ class DocumentManager: ObservableObject {
 
     nonisolated deinit {
         // Remove all observers
-        // Note: We can't access @MainActor properties like scraps here,
-        // so document cleanup should happen elsewhere (e.g., when app backgrounds)
-        for observer in documentObservers {
+        for observer in documentObservers.values {
             NotificationCenter.default.removeObserver(observer)
         }
     }

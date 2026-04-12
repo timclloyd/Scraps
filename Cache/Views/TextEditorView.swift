@@ -65,6 +65,8 @@ struct TextEditorView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: EnhancedTextView, context: Context) {
+        context.coordinator.parent = self
+
         // Update text if changed
         if uiView.text != text {
             uiView.text = text
@@ -89,13 +91,14 @@ struct TextEditorView: UIViewRepresentable {
         var parent: TextEditorView
         var hasFocused = false
         weak var textView: UITextView?
+        private var keyboardDidShowObserver: NSObjectProtocol?
 
         init(_ parent: TextEditorView) {
             self.parent = parent
             super.init()
 
             // Listen for keyboard appearing to adjust scroll position
-            NotificationCenter.default.addObserver(
+            keyboardDidShowObserver = NotificationCenter.default.addObserver(
                 forName: UIResponder.keyboardDidShowNotification,
                 object: nil,
                 queue: .main
@@ -105,6 +108,12 @@ struct TextEditorView: UIViewRepresentable {
                     guard let self = self, let textView = self.textView, textView.isFirstResponder else { return }
                     self.scrollToKeepCursorVisible(in: textView)
                 }
+            }
+        }
+
+        deinit {
+            if let keyboardDidShowObserver {
+                NotificationCenter.default.removeObserver(keyboardDidShowObserver)
             }
         }
 
