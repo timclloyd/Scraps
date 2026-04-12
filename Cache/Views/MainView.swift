@@ -8,119 +8,344 @@
 
 import SwiftUI
 import SmoothGradient
+import UIKit
 
 struct MainView: View {
+    private enum ViewMode {
+        case latest
+        case archive
+    }
+
+    private struct ScrollMetrics: Equatable {
+        let minY: CGFloat
+        let maxY: CGFloat
+        let height: CGFloat
+
+        static let zero = ScrollMetrics(minY: 0, maxY: 0, height: 0)
+    }
+
     @EnvironmentObject var documentManager: DocumentManager
+    @State private var viewMode: ViewMode = .latest
     @State private var isScrolledToTop = true
     @State private var keyboardHeight: CGFloat = 0
     @State private var keyboardObservers: [NSObjectProtocol] = []
-    
+    @State private var latestOverscroll: CGFloat = 0
+    @State private var archiveBottomOverscroll: CGFloat = 0
+
+    private var editorFont: UIFont {
+        UIFont(name: Theme.font, size: Theme.textSize) ?? UIFont.systemFont(ofSize: Theme.textSize)
+    }
+
+    private var overscrollActivationHeight: CGFloat {
+        editorFont.lineHeight * Preferences.archiveRevealLineCount
+    }
+
     var body: some View {
-        ZStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(documentManager.scraps) { scrap in
-                            VStack(spacing: 0) {
-                                // Show datetime stamped separator before each scrap except the first one
-                                if scrap.id != documentManager.scraps.first?.id {
-                                    SeparatorView(timestamp: scrap.timestamp)
-                                        .padding(.vertical, Theme.separatorVerticalPadding / 2 - Theme.horizontalPaddingBackground)
-                                        .padding(.horizontal, Theme.horizontalPadding - Theme.horizontalPaddingBackground)
-                                }
-
-                                ScrapView(
-                                    scrap: scrap,
-                                    document: scrap.document,
-                                    font: UIFont(name: Theme.font, size: Theme.textSize) ?? UIFont.systemFont(ofSize: Theme.textSize),
-                                    isInitialFocus: scrap.id == documentManager.focusedScrapID
-                                )
-                                .padding(.horizontal, Theme.horizontalPadding - Theme.horizontalPaddingBackground)
-                                .padding(.bottom, Theme.separatorVerticalPadding - Theme.horizontalPaddingBackground)
-                            }
-                            .background(
-                                scrap.id == documentManager.focusedScrapID ?
-                                    Color(uiColor: Theme.focusBackgroundColor(for: UITraitCollection.current)) :
-                                    Color.clear
-                            )
-                            .cornerRadius(12)
-                            .padding(.horizontal, Theme.horizontalPaddingBackground)
-                            .id(scrap.id)
-                            .padding(.top, Theme.textSize)
-                        }
+        GeometryReader { geometry in
+            ZStack {
+                Group {
+                    switch viewMode {
+                    case .latest:
+                        latestScrapView(viewportHeight: geometry.size.height)
+                    case .archive:
+                        archiveView(viewportHeight: geometry.size.height)
                     }
-                    .padding(.top, Theme.isIPadOrMac ? Theme.verticalPadding / 2 : Theme.verticalPadding)
-                    .padding(.bottom, Theme.textSize)
-                    .background(
-                        GeometryReader { geometry in
-                            Color.clear.preference(
-                                key: ScrollOffsetPreferenceKey.self,
-                                value: geometry.frame(in: .named("scroll")).minY
-                            )
-                        }
-                    )
                 }
-                .scrollDismissesKeyboard(.never)
-                .coordinateSpace(name: "scroll")
+                .animation(.spring(response: 0.28, dampingFraction: 0.82), value: viewMode)
+
+                VStack {
+                    HStack {
+                        Spacer()
+                        modeToggleButton
+                    }
+                    .padding(.horizontal, Theme.horizontalPadding)
+                    .padding(.top, Theme.isIPadOrMac ? Theme.verticalPadding / 3 : Theme.verticalPadding / 2)
+                    Spacer()
+                }
                 .ignoresSafeArea(edges: .top)
-                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
-                    let newValue = offset >= 0
-                    if isScrolledToTop != newValue {
-                        isScrolledToTop = newValue
+
+                VStack {
+                    if viewMode == .latest {
+                        revealBox(height: latestOverscroll, edge: .top)
+                        Spacer()
+                    } else {
+                        Spacer()
+                        revealBox(height: archiveBottomOverscroll, edge: .bottom)
                     }
                 }
-                .onChange(of: documentManager.isReady) { wasReady, isNowReady in
-                    // Scroll to last scrap once initialization is complete
-                    if isNowReady, let lastScrap = documentManager.scraps.last {
-                        proxy.scrollTo(lastScrap.id, anchor: .bottom)
-                    }
+                .allowsHitTesting(false)
+
+                // Solid background at bottom to prevent text showing through keyboard
+                VStack {
+                    Spacer()
+                    Color(uiColor: .systemBackground)
+                        .frame(height: keyboardHeight)
                 }
+                .allowsHitTesting(false)
+                .ignoresSafeArea(edges: .bottom)
+
+                // Gradient overlays
+                VStack(spacing: 0) {
+                    SmoothLinearGradient(
+                        from: Color(uiColor: .systemBackground).opacity(0.9),
+                        to: Color(uiColor: .systemBackground).opacity(0),
+                        startPoint: .top,
+                        endPoint: .bottom,
+                        curve: .easeOut
+                    )
+                    .frame(height: Theme.topFadeHeight)
+                    .opacity(Theme.isIPadOrMac ? 1 : (isScrolledToTop ? 0 : 1))
+                    .animation(.easeOut(duration: 0.2), value: isScrolledToTop)
+
+                    Spacer()
+
+                    SmoothLinearGradient(
+                        from: Color(uiColor: .systemBackground).opacity(0),
+                        to: Color(uiColor: .systemBackground).opacity(0.9),
+                        startPoint: .top,
+                        endPoint: .bottom,
+                        curve: .easeIn
+                    )
+                    .frame(height: Theme.bottomFadeHeight)
+                }
+                .allowsHitTesting(false)
             }
-
-            // Solid background at bottom to prevent text showing through keyboard
-            VStack {
-                Spacer()
-                Color(uiColor: .systemBackground)
-                    .frame(height: keyboardHeight)
-            }
-            .allowsHitTesting(false)
-            .ignoresSafeArea(edges: .bottom)
-
-            // Gradient overlays
-            VStack(spacing: 0) {
-                // Top fade prevents text from running into status bar/notch on iPad/Mac
-                // iPhone doesn't need it when scrolled to top (notch provides natural spacing)
-                SmoothLinearGradient(
-                    from: Color(uiColor: .systemBackground).opacity(0.9),
-                    to: Color(uiColor: .systemBackground).opacity(0),
-                    startPoint: .top,
-                    endPoint: .bottom,
-                    curve: .easeOut
-                )
-                .frame(height: Theme.topFadeHeight)
-                .opacity(Theme.isIPadOrMac ? 1 : (isScrolledToTop ? 0 : 1))
-                .animation(.easeOut(duration: 0.2), value: isScrolledToTop)
-
-                Spacer()
-
-                // Bottom fade prevents text from running into home indicator area
-                // Creates visual boundary for scrollable content
-                SmoothLinearGradient(
-                    from: Color(uiColor: .systemBackground).opacity(0),
-                    to: Color(uiColor: .systemBackground).opacity(0.9),
-                    startPoint: .top,
-                    endPoint: .bottom,
-                    curve: .easeIn
-                )
-                .frame(height: Theme.bottomFadeHeight)
-            }
-            .allowsHitTesting(false)
         }
         .onAppear {
             subscribeToKeyboardNotifications()
         }
         .onDisappear {
             unsubscribeFromKeyboardNotifications()
+        }
+    }
+
+    private func latestScrapView(viewportHeight: CGFloat) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 0) {
+                    if let latestScrap = documentManager.scraps.last {
+                        scrapCard(
+                            scrap: latestScrap,
+                            showsSeparator: false,
+                            autoFocus: latestScrap.id == documentManager.focusedScrapID,
+                            showsFocusBackground: false,
+                            onShake: handleShake
+                        )
+                    }
+                }
+                .padding(.top, Theme.isIPadOrMac ? Theme.verticalPadding / 2 : Theme.verticalPadding)
+                .padding(.bottom, Theme.textSize)
+                .background(
+                    GeometryReader { geometry in
+                        Color.clear.preference(
+                            key: LatestScrollMetricsPreferenceKey.self,
+                            value: ScrollMetrics(
+                                minY: geometry.frame(in: .named("latestScroll")).minY,
+                                maxY: geometry.frame(in: .named("latestScroll")).maxY,
+                                height: geometry.size.height
+                            )
+                        )
+                    }
+                )
+            }
+            .scrollDismissesKeyboard(.never)
+            .coordinateSpace(name: "latestScroll")
+            .ignoresSafeArea(edges: .top)
+            .simultaneousGesture(
+                DragGesture().onEnded { _ in
+                    guard latestOverscroll >= overscrollActivationHeight else { return }
+                    transitionToArchive()
+                }
+            )
+            .onPreferenceChange(LatestScrollMetricsPreferenceKey.self) { metrics in
+                latestOverscroll = max(0, metrics.minY)
+                isScrolledToTop = metrics.minY >= 0
+            }
+            .onAppear {
+                scrollToLatestScrap(using: proxy)
+            }
+            .onChange(of: documentManager.isReady) { _, isNowReady in
+                if isNowReady {
+                    scrollToLatestScrap(using: proxy)
+                }
+            }
+            .onChange(of: documentManager.focusedScrapID) { _, _ in
+                scrollToLatestScrap(using: proxy)
+            }
+            .onChange(of: documentManager.scraps.count) { _, _ in
+                scrollToLatestScrap(using: proxy)
+            }
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    private func archiveView(viewportHeight: CGFloat) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(documentManager.scraps) { scrap in
+                        scrapCard(
+                            scrap: scrap,
+                            showsSeparator: scrap.id != documentManager.scraps.first?.id,
+                            autoFocus: false,
+                            showsFocusBackground: true,
+                            onShake: handleShake
+                        )
+                    }
+                }
+                .padding(.top, Theme.isIPadOrMac ? Theme.verticalPadding / 2 : Theme.verticalPadding)
+                .padding(.bottom, Theme.textSize)
+                .background(
+                    GeometryReader { geometry in
+                        Color.clear.preference(
+                            key: ArchiveScrollMetricsPreferenceKey.self,
+                            value: ScrollMetrics(
+                                minY: geometry.frame(in: .named("archiveScroll")).minY,
+                                maxY: geometry.frame(in: .named("archiveScroll")).maxY,
+                                height: geometry.size.height
+                            )
+                        )
+                    }
+                )
+            }
+            .scrollDismissesKeyboard(.never)
+            .coordinateSpace(name: "archiveScroll")
+            .ignoresSafeArea(edges: .top)
+            .simultaneousGesture(
+                DragGesture().onEnded { _ in
+                    guard archiveBottomOverscroll >= overscrollActivationHeight else { return }
+                    transitionToLatest()
+                }
+            )
+            .onPreferenceChange(ArchiveScrollMetricsPreferenceKey.self) { metrics in
+                let naturalBottomGap = max(0, viewportHeight - metrics.height)
+                archiveBottomOverscroll = max(0, viewportHeight - metrics.maxY - naturalBottomGap)
+                isScrolledToTop = metrics.minY >= 0
+            }
+            .onAppear {
+                scrollToLatestScrap(using: proxy)
+            }
+            .onChange(of: documentManager.scraps.count) { _, _ in
+                scrollToLatestScrap(using: proxy)
+            }
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    private func scrapCard(
+        scrap: Scrap,
+        showsSeparator: Bool,
+        autoFocus: Bool,
+        showsFocusBackground: Bool,
+        onShake: @escaping () -> Void
+    ) -> some View {
+        VStack(spacing: 0) {
+            if showsSeparator {
+                SeparatorView(timestamp: scrap.timestamp)
+                    .padding(.vertical, Theme.separatorVerticalPadding / 2 - Theme.horizontalPaddingBackground)
+                    .padding(.horizontal, Theme.horizontalPadding - Theme.horizontalPaddingBackground)
+            }
+
+            ScrapView(
+                scrap: scrap,
+                document: scrap.document,
+                font: editorFont,
+                isInitialFocus: autoFocus,
+                onShake: onShake
+            )
+            .padding(.horizontal, Theme.horizontalPadding - Theme.horizontalPaddingBackground)
+            .padding(.bottom, Theme.separatorVerticalPadding - Theme.horizontalPaddingBackground)
+        }
+        .background(
+            showsFocusBackground && scrap.id == documentManager.focusedScrapID ?
+                Color(uiColor: Theme.focusBackgroundColor(for: UITraitCollection.current)) :
+                Color.clear
+        )
+        .cornerRadius(12)
+        .padding(.horizontal, Theme.horizontalPaddingBackground)
+        .id(scrap.id)
+        .padding(.top, Theme.textSize)
+    }
+
+    private func revealBox(height: CGFloat, edge: VerticalEdge) -> some View {
+        let clampedHeight = min(max(0, height), overscrollActivationHeight)
+        return Color.red
+            .opacity(clampedHeight >= overscrollActivationHeight ? 0.95 : 0.8)
+            .frame(maxWidth: .infinity)
+            .frame(height: clampedHeight)
+            .animation(.spring(response: 0.22, dampingFraction: 0.82), value: clampedHeight)
+            .ignoresSafeArea(edges: edge == .top ? .top : .bottom)
+    }
+
+    private func handleShake() {
+        Task {
+            let newScrap = await documentManager.createNewScrapOnDemand()
+            guard newScrap != nil else { return }
+
+            await MainActor.run {
+                latestOverscroll = 0
+                archiveBottomOverscroll = 0
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                    viewMode = .latest
+                }
+            }
+        }
+    }
+
+    private var modeToggleButton: some View {
+        Button(action: toggleViewMode) {
+            Text(viewMode == .latest ? "Archive" : "Latest")
+                .font(.custom(Theme.font, size: Theme.separatorFontSize))
+                .foregroundColor(Color(uiColor: .white))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.red.opacity(0.9))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func toggleViewMode() {
+        switch viewMode {
+        case .latest:
+            transitionToArchive()
+        case .archive:
+            transitionToLatest()
+        }
+    }
+
+    private func transitionToArchive() {
+        dismissKeyboard()
+        latestOverscroll = 0
+        archiveBottomOverscroll = 0
+
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+            viewMode = .archive
+        }
+    }
+
+    private func transitionToLatest() {
+        latestOverscroll = 0
+        archiveBottomOverscroll = 0
+
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+            viewMode = .latest
+        }
+
+        DispatchQueue.main.async {
+            documentManager.focusLatestScrap()
+        }
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func scrollToLatestScrap(using proxy: ScrollViewProxy) {
+        guard let latestScrap = documentManager.scraps.last else { return }
+
+        DispatchQueue.main.async {
+            proxy.scrollTo(latestScrap.id, anchor: .bottom)
         }
     }
 
@@ -157,12 +382,18 @@ struct MainView: View {
         keyboardObservers.removeAll()
     }
 
-    // MARK: - Scroll Tracking
+    private struct LatestScrollMetricsPreferenceKey: PreferenceKey {
+        static var defaultValue = ScrollMetrics.zero
 
-    // Preference key for tracking scroll offset
-    struct ScrollOffsetPreferenceKey: PreferenceKey {
-        static var defaultValue: CGFloat = 0
-        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        static func reduce(value: inout ScrollMetrics, nextValue: () -> ScrollMetrics) {
+            value = nextValue()
+        }
+    }
+
+    private struct ArchiveScrollMetricsPreferenceKey: PreferenceKey {
+        static var defaultValue = ScrollMetrics.zero
+
+        static func reduce(value: inout ScrollMetrics, nextValue: () -> ScrollMetrics) {
             value = nextValue()
         }
     }

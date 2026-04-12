@@ -7,9 +7,9 @@
 //  App preferences and configuration values
 
 import Foundation
+import CoreGraphics
 
 enum Preferences {
-    /// Time threshold (in seconds) for creating a new scrap after app closure
-    /// If elapsed time since last close exceeds this value, a new scrap is created
-    static let newScrapThresholdSeconds: TimeInterval = (60 * 5)
+    /// Number of text line heights the user must overscroll to reveal/archive transitions.
+    static let archiveRevealLineCount: CGFloat = 2
 }

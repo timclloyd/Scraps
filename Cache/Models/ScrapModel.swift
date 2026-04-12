@@ -1,7 +1,7 @@
 import Foundation
 
 struct Scrap: Identifiable, Sendable {
-    let id: UUID
+    let id: String
     let timestamp: Date
     let filename: String
     let document: TextDocument
@@ -10,7 +10,7 @@ struct Scrap: Identifiable, Sendable {
     private static let utcSuffix = "Z"
 
     init(timestamp: Date, filename: String, document: TextDocument) {
-        self.id = UUID()
+        self.id = filename
         self.timestamp = timestamp
         self.filename = filename
         self.document = document

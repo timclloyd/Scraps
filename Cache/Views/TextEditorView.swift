@@ -19,8 +19,9 @@ struct TextEditorView: UIViewRepresentable {
     @Binding var text: String
     var font: UIFont
     var isInitialFocus: Bool = false
-    var scrapID: UUID?
-    var onBecomeFocused: ((UUID) -> Void)?
+    var scrapID: String?
+    var onShake: (() -> Void)?
+    var onBecomeFocused: ((String) -> Void)?
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: EnhancedTextView, context: Context) -> CGSize? {
         // Tell SwiftUI to use the proposed width but let height grow based on content
@@ -57,6 +58,7 @@ struct TextEditorView: UIViewRepresentable {
                 onBecomeFocused?(scrapID)
             }
         }
+        textView.onShake = onShake
 
         // Store reference in coordinator for keyboard notification
         context.coordinator.textView = textView
@@ -71,6 +73,8 @@ struct TextEditorView: UIViewRepresentable {
         if uiView.text != text {
             uiView.text = text
         }
+
+        uiView.onShake = onShake
 
         // Auto-focus only if this is marked for initial focus and hasn't focused yet
         // No delay needed - proper sequencing ensures scroll completes before focus

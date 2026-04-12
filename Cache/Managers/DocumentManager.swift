@@ -5,7 +5,7 @@ import UIKit
 @MainActor
 class DocumentManager: ObservableObject {
     @Published var scraps: [Scrap] = []
-    @Published var focusedScrapID: UUID?
+    @Published var focusedScrapID: String?
     @Published var focusedScrapFilename: String?
     @Published var isReady = false
 
@@ -16,6 +16,7 @@ class DocumentManager: ObservableObject {
     private let lastFocusedScrapFilenameKey = "lastFocusedScrapFilename"
     private var hasBackgrounded = false
     private var isInitialLoad = true
+    private let calendar = Calendar.current
 
     private var documentsDirectoryURL: URL? {
         guard let containerURL = FileManager.default.url(forUbiquityContainerIdentifier: nil) else {
@@ -43,33 +44,16 @@ class DocumentManager: ObservableObject {
 
                 // Create new scrap and wait for it to complete
                 if let newScrap = await createNewScrap() {
-                    // Set focus to the newly created scrap
-                    focusedScrapID = newScrap.id
-                    focusedScrapFilename = newScrap.filename
+                    focus(on: newScrap)
                 }
-
-                // Clear the last close time
-                UserDefaults.standard.removeObject(forKey: lastCloseTimeKey)
             } else if scraps.isEmpty {
                 // No scraps at all - create first one
                 if let newScrap = await createNewScrap() {
-                    focusedScrapID = newScrap.id
-                    focusedScrapFilename = newScrap.filename
+                    focus(on: newScrap)
                 }
             } else {
                 // Quick return - restore previous focus using filename
-                let savedFilename = UserDefaults.standard.string(forKey: lastFocusedScrapFilenameKey)
-
-                if let savedFilename = savedFilename,
-                   let savedScrap = scraps.first(where: { $0.filename == savedFilename }) {
-                    // Restore focus to previously focused scrap
-                    focusedScrapID = savedScrap.id
-                    focusedScrapFilename = savedFilename
-                } else {
-                    // First launch or saved scrap no longer exists - focus last scrap
-                    focusedScrapID = scraps.last?.id
-                    focusedScrapFilename = scraps.last?.filename
-                }
+                focusLatestScrap()
             }
 
             // Step 3: Mark initialization as complete
@@ -202,19 +186,11 @@ class DocumentManager: ObservableObject {
     }
 
     private func shouldCreateNewScrap() -> Bool {
-        // Check if enough time has elapsed since last close
-        let lastCloseTimestamp = UserDefaults.standard.double(forKey: lastCloseTimeKey)
-
-        guard lastCloseTimestamp > 0 else {
+        guard let latestScrap = scraps.last else {
             return false
         }
 
-        let lastCloseTime = Date(timeIntervalSince1970: lastCloseTimestamp)
-        let now = Date()
-        let elapsed = now.timeIntervalSince(lastCloseTime)
-
-        // Check if threshold time has elapsed
-        return elapsed > Preferences.newScrapThresholdSeconds
+        return calendar.isDate(latestScrap.timestamp, inSameDayAs: Date()) == false
     }
 
 
@@ -358,15 +334,14 @@ class DocumentManager: ObservableObject {
         // Skip if we're still doing the initial load
         guard !isInitialLoad else { return }
 
-        // Only reload if enough time has elapsed for a new scrap
-        // This avoids unnecessary reloads and view updates on quick app switches
-        guard shouldCreateNewScrap() else { return }
-
-        // Reload scraps from disk to catch any changes, then create new scrap
         Task {
             await loadScraps()
 
-            // Check if last scrap is empty and replace if needed
+            guard shouldCreateNewScrap() else {
+                focusLatestScrap()
+                return
+            }
+
             if let lastScrap = scraps.last {
                 let trimmedText = lastScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmedText.isEmpty {
@@ -374,15 +349,50 @@ class DocumentManager: ObservableObject {
                 }
             }
 
-            // Create new scrap
             if let newScrap = await createNewScrap() {
-                focusedScrapID = newScrap.id
-                focusedScrapFilename = newScrap.filename
+                focus(on: newScrap)
             }
-
-            // Clear the last close time
-            UserDefaults.standard.removeObject(forKey: lastCloseTimeKey)
         }
+    }
+
+    @discardableResult
+    func createNewScrapOnDemand() async -> Scrap? {
+        guard let latestScrap = scraps.last else {
+            let newScrap = await createNewScrap()
+            if let newScrap {
+                focus(on: newScrap)
+            }
+            return newScrap
+        }
+
+        let trimmedText = latestScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedText.isEmpty == false else {
+            focus(on: latestScrap)
+            return nil
+        }
+
+        let newScrap = await createNewScrap()
+        if let newScrap {
+            focus(on: newScrap)
+        }
+        return newScrap
+    }
+
+    func focusLatestScrap() {
+        guard let latestScrap = scraps.last else {
+            focusedScrapID = nil
+            focusedScrapFilename = nil
+            return
+        }
+
+        focus(on: latestScrap)
+    }
+
+    private func focus(on scrap: Scrap) {
+        guard focusedScrapID != scrap.id || focusedScrapFilename != scrap.filename else { return }
+        focusedScrapID = scrap.id
+        focusedScrapFilename = scrap.filename
+        UserDefaults.standard.set(scrap.filename, forKey: lastFocusedScrapFilenameKey)
     }
 
     private func handleDocumentStateChanged(_ notification: Notification) {
