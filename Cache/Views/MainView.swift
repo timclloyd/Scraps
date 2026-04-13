@@ -61,6 +61,7 @@ struct MainView: View {
                     .ignoresSafeArea(edges: .bottom)
                     .allowsHitTesting(false)
                 }
+                .padding(.top, Theme.horizontalPaddingBackground)
 
                 // Toolbar — higher z-order so it always wins hit tests, extends into status bar
                 toolbarView(topHeight: geometry.safeAreaInsets.top)
@@ -89,7 +90,14 @@ struct MainView: View {
     }
 
     private func latestScrapPanel() -> some View {
-        ScrollViewReader { proxy in
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: Preferences.latestPanelCornerRadius,
+            bottomLeadingRadius: 0,
+            bottomTrailingRadius: 0,
+            topTrailingRadius: Preferences.latestPanelCornerRadius
+        )
+
+        return ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 0) {
                     if let latestScrap = documentManager.scraps.last {
@@ -98,7 +106,7 @@ struct MainView: View {
                             showsSeparator: false,
                             autoFocus: latestScrap.id == documentManager.focusedScrapID && viewMode == .latest,
                             showsFocusBackground: false,
-                            topPadding: 0
+                            topPadding: 12
                         )
                     }
                 }
@@ -106,23 +114,7 @@ struct MainView: View {
             }
             .scrollDismissesKeyboard(.never)
             .background(Color(uiColor: .systemBackground))
-            .clipShape(
-                UnevenRoundedRectangle(
-                    topLeadingRadius: Preferences.latestPanelCornerRadius,
-                    bottomLeadingRadius: 0,
-                    bottomTrailingRadius: 0,
-                    topTrailingRadius: Preferences.latestPanelCornerRadius
-                )
-            )
-            .overlay(alignment: .top) {
-                UnevenRoundedRectangle(
-                    topLeadingRadius: Preferences.latestPanelCornerRadius,
-                    bottomLeadingRadius: 0,
-                    bottomTrailingRadius: 0,
-                    topTrailingRadius: Preferences.latestPanelCornerRadius
-                )
-                .stroke(Color(uiColor: .separator), lineWidth: 1)
-            }
+            .clipShape(shape)
             .overlay(alignment: .top) {
                 SmoothLinearGradient(
                     from: Color(uiColor: .systemBackground).opacity(0.9),
@@ -134,6 +126,9 @@ struct MainView: View {
             }
             .ignoresSafeArea(edges: .bottom)
             .ignoresSafeArea(.keyboard)
+        }
+        .overlay(alignment: .top) {
+            shape.strokeBorder(Color(uiColor: .separator), lineWidth: 1)
         }
     }
 
@@ -157,6 +152,15 @@ struct MainView: View {
             .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
             .animation(.easeOut(duration: 0.25), value: keyboardHeight)
             .ignoresSafeArea(edges: .bottom)
+            .overlay(alignment: .top) {
+                SmoothLinearGradient(
+                    from: Color(uiColor: .systemBackground).opacity(0.9),
+                    to: Color(uiColor: .systemBackground).opacity(0),
+                    startPoint: .top, endPoint: .bottom, curve: .easeOut
+                )
+                .frame(height: Theme.topFadeHeight)
+                .allowsHitTesting(false)
+            }
             .onAppear {
                 scrollToLatestScrap(using: proxy)
             }
