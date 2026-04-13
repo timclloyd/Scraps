@@ -20,7 +20,6 @@ struct TextEditorView: UIViewRepresentable {
     var font: UIFont
     var isInitialFocus: Bool = false
     var scrapID: String?
-    var onShake: (() -> Void)?
     var onBecomeFocused: ((String) -> Void)?
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: EnhancedTextView, context: Context) -> CGSize? {
@@ -58,7 +57,6 @@ struct TextEditorView: UIViewRepresentable {
                 onBecomeFocused?(scrapID)
             }
         }
-        textView.onShake = onShake
 
         // Store reference in coordinator for keyboard notification
         context.coordinator.textView = textView
@@ -74,7 +72,10 @@ struct TextEditorView: UIViewRepresentable {
             uiView.text = text
         }
 
-        uiView.onShake = onShake
+        // Reset so next isInitialFocus = true transition triggers becomeFirstResponder again
+        if !isInitialFocus {
+            context.coordinator.hasFocused = false
+        }
 
         // Auto-focus only if this is marked for initial focus and hasn't focused yet
         // No delay needed - proper sequencing ensures scroll completes before focus
@@ -183,7 +184,6 @@ struct TextEditorView: UIViewRepresentable {
 // MARK: - EnhancedTextView (Private UIKit Implementation)
 
 class EnhancedTextView: UITextView {
-    var onShake: (() -> Void)?
     var onBecomeFocused: (() -> Void)?
 
     override init(frame: CGRect, textContainer: NSTextContainer?) {
@@ -213,16 +213,6 @@ class EnhancedTextView: UITextView {
         // but keep autocorrect suggestions for better typing experience
         spellCheckingType = .no
         autocorrectionType = .yes
-    }
-
-    // Detects device shake gesture to trigger clear action
-    // Warning haptic provides physical feedback that gesture was registered
-    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        if motion == .motionShake {
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.warning)
-            onShake?()
-        }
     }
 
     override var canBecomeFirstResponder: Bool {

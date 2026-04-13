@@ -13,7 +13,6 @@ struct ScrapView: View {
     @ObservedObject var document: TextDocument
     let font: UIFont
     var isInitialFocus: Bool = false
-    var onShake: (() -> Void)?
 
     @EnvironmentObject var documentManager: DocumentManager
 
@@ -28,7 +27,6 @@ struct ScrapView: View {
             font: font,
             isInitialFocus: isInitialFocus,
             scrapID: scrap.id,
-            onShake: onShake,
             onBecomeFocused: { scrapID in
                 documentManager.focusedScrapID = scrapID
                 documentManager.focusedScrapFilename = scrap.filename

@@ -10,6 +10,9 @@ import Foundation
 import CoreGraphics
 
 enum Preferences {
-    /// Number of text line heights the user must overscroll to reveal/archive transitions.
-    static let archiveRevealLineCount: CGFloat = 2
+    /// Corner radius applied to the top corners of the latest scrap panel.
+    static let latestPanelCornerRadius: CGFloat = 16
+
+    /// Toolbar height matches the device's top safe area inset (notch / Dynamic Island height)
+    /// and is read dynamically from GeometryProxy.safeAreaInsets.top at runtime.
 }
