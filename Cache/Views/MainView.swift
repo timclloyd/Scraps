@@ -206,13 +206,13 @@ struct MainView: View {
 
     private var modeToggleButton: some View {
         Button(action: toggleViewMode) {
-            Text(viewMode == .latest ? "Archive" : "Latest")
-                .font(.custom(Theme.font, size: Theme.separatorFontSize))
-                .foregroundColor(Color(uiColor: .white))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.red.opacity(0.9))
-                .clipShape(Capsule())
+            HStack(spacing: 4) {
+                Text(viewMode == .latest ? "SCRAPS" : "TODAY")
+                Image(systemName: viewMode == .latest ? "tray.full" : "calendar")
+            }
+            .font(.custom(Theme.font, size: Theme.separatorFontSize))
+            .foregroundColor(Color(uiColor: .label))
+            .padding(.top, 8)
         }
         .buttonStyle(.plain)
     }
