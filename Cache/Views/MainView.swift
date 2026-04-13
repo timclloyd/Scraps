@@ -14,10 +14,12 @@ struct MainView: View {
     private enum ViewMode {
         case latest
         case archive
+        case search
     }
 
     @EnvironmentObject var documentManager: DocumentManager
     @State private var viewMode: ViewMode = .latest
+    @State private var priorMode: ViewMode = .latest
     @State private var keyboardHeight: CGFloat = 0
     @State private var keyboardObservers: [NSObjectProtocol] = []
 
@@ -37,6 +39,7 @@ struct MainView: View {
                         .offset(y: viewMode == .latest ? 0 : geometry.size.height)
                         .animation(.spring(response: 0.28, dampingFraction: 0.82), value: viewMode)
                         .allowsHitTesting(viewMode == .latest)
+
 
                     // Solid background behind keyboard to prevent text showing through
                     VStack {
@@ -62,6 +65,7 @@ struct MainView: View {
                     .allowsHitTesting(false)
                 }
                 .padding(.top, Theme.horizontalPaddingBackground)
+                
 
                 // Toolbar — higher z-order so it always wins hit tests, extends into status bar
                 toolbarView(topHeight: geometry.safeAreaInsets.top)
@@ -83,10 +87,43 @@ struct MainView: View {
         HStack {
             modeToggleButton
             Spacer()
+            searchButton
         }
         .frame(height: topHeight)
         .padding(.horizontal, Theme.horizontalPadding)
         .background(Color(uiColor: .systemBackground))
+    }
+
+    private var searchButton: some View {
+        Button(action: toggleSearch) {
+            HStack(spacing: 4) {
+                Image(systemName: viewMode == .search ? "text.magnifyingglass" : "magnifyingglass")
+                Text("SEARCH")
+            }
+            .font(.custom(Theme.font, size: Theme.separatorFontSize))
+            .foregroundColor(Color(uiColor: .label))
+            .padding(10)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func toggleSearch() {
+        switch viewMode {
+        case .search:
+            if priorMode == .archive {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                    viewMode = .archive
+                }
+            } else {
+                transitionToLatest()
+            }
+        case .latest, .archive:
+            priorMode = viewMode
+            dismissKeyboard()
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                viewMode = .search
+            }
+        }
     }
 
     private func latestScrapPanel() -> some View {
@@ -221,7 +258,7 @@ struct MainView: View {
         switch viewMode {
         case .latest:
             transitionToArchive()
-        case .archive:
+        case .archive, .search:
             transitionToLatest()
         }
     }
