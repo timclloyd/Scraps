@@ -16,6 +16,12 @@ struct MainView: View {
         case archive
     }
 
+    private let latestTransition = AnyTransition.move(edge: .bottom)
+    private let archiveTransition = AnyTransition.asymmetric(
+        insertion: .move(edge: .top),
+        removal: .offset(CGSize(width: 0, height: -(UIScreen.main.bounds.height + 200)))
+    )
+
     private struct ScrollMetrics: Equatable {
         let minY: CGFloat
         let maxY: CGFloat
@@ -47,16 +53,18 @@ struct MainView: View {
                     switch viewMode {
                     case .latest:
                         latestScrapView(viewportHeight: geometry.size.height)
+                            .transition(latestTransition)
                     case .archive:
                         archiveView(viewportHeight: geometry.size.height)
+                            .transition(archiveTransition)
                     }
                 }
                 .animation(.spring(response: 0.28, dampingFraction: 0.82), value: viewMode)
 
                 VStack {
                     HStack {
-                        Spacer()
                         modeToggleButton
+                        Spacer()
                     }
                     .padding(.horizontal, Theme.horizontalPadding)
                     .padding(.top, Theme.isIPadOrMac ? Theme.verticalPadding / 3 : Theme.verticalPadding / 2)
@@ -84,8 +92,10 @@ struct MainView: View {
                 .allowsHitTesting(false)
                 .ignoresSafeArea(edges: .bottom)
 
-                // Gradient overlays
-                VStack(spacing: 0) {
+                // Top gradient — fades text behind the status bar area.
+                // ignoresSafeArea(.top) ensures it covers the status bar, matching
+                // the scroll views which also extend behind the status bar.
+                VStack {
                     SmoothLinearGradient(
                         from: Color(uiColor: .systemBackground).opacity(0.9),
                         to: Color(uiColor: .systemBackground).opacity(0),
@@ -94,11 +104,17 @@ struct MainView: View {
                         curve: .easeOut
                     )
                     .frame(height: Theme.topFadeHeight)
-                    .opacity(Theme.isIPadOrMac ? 1 : (isScrolledToTop ? 0 : 1))
-                    .animation(.easeOut(duration: 0.2), value: isScrolledToTop)
-
+                    .opacity(1)
                     Spacer()
+                }
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
 
+                // Bottom gradient — fades text at the screen bottom or above the keyboard.
+                // ignoresSafeArea(.bottom) extends to the physical screen edge so the
+                // keyboard padding (which includes the safe area) positions it correctly.
+                VStack {
+                    Spacer()
                     SmoothLinearGradient(
                         from: Color(uiColor: .systemBackground).opacity(0),
                         to: Color(uiColor: .systemBackground).opacity(0.9),
@@ -108,6 +124,8 @@ struct MainView: View {
                     )
                     .frame(height: Theme.bottomFadeHeight)
                 }
+                .padding(.bottom, keyboardHeight)
+                .ignoresSafeArea(edges: .bottom)
                 .allowsHitTesting(false)
             }
         }
@@ -176,7 +194,6 @@ struct MainView: View {
                 scrollToLatestScrap(using: proxy)
             }
         }
-        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
     private func archiveView(viewportHeight: CGFloat) -> some View {
@@ -229,7 +246,6 @@ struct MainView: View {
                 scrollToLatestScrap(using: proxy)
             }
         }
-        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
     private func scrapCard(
