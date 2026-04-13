@@ -183,8 +183,12 @@ struct TextEditorView: UIViewRepresentable {
 
 // MARK: - EnhancedTextView (Private UIKit Implementation)
 
-class EnhancedTextView: UITextView {
+class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
     var onBecomeFocused: (() -> Void)?
+
+    private let strikethroughPreviewLayer = CAShapeLayer()
+    private var gestureLineRange: NSRange?
+    private var gestureLineIsStruck = false
 
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
@@ -213,6 +217,15 @@ class EnhancedTextView: UITextView {
         // but keep autocorrect suggestions for better typing experience
         spellCheckingType = .no
         autocorrectionType = .yes
+
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handleStrikethroughPan(_:)))
+        pan.delegate = self
+        addGestureRecognizer(pan)
+
+        strikethroughPreviewLayer.lineWidth = 1.5
+        strikethroughPreviewLayer.lineCap = .round
+        strikethroughPreviewLayer.opacity = 0
+        layer.addSublayer(strikethroughPreviewLayer)
     }
 
     override var canBecomeFirstResponder: Bool {
@@ -233,5 +246,102 @@ class EnhancedTextView: UITextView {
     override func resignFirstResponder() -> Bool {
         self.inputView = nil
         return super.resignFirstResponder()
+    }
+
+    // MARK: - UIGestureRecognizerDelegate
+
+    override func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = recognizer as? UIPanGestureRecognizer, pan.delegate === self else { return true }
+        let v = pan.velocity(in: self)
+        return abs(v.x) > abs(v.y) * 2
+    }
+
+    // MARK: - Strikethrough Gesture
+
+    @objc private func handleStrikethroughPan(_ pan: UIPanGestureRecognizer) {
+        let translation = pan.translation(in: self)
+        let isRightSwipe = translation.x > 0
+
+        switch pan.state {
+        case .began:
+            let location = pan.location(in: self)
+            guard let textPos = closestPosition(to: location) else { return }
+            let charIndex = offset(from: beginningOfDocument, to: textPos)
+            let nsRange = (text as NSString).paragraphRange(for: NSRange(location: charIndex, length: 0))
+            let lineText = (text as NSString).substring(with: nsRange)
+            let content = lineText.hasSuffix("\n") ? String(lineText.dropLast()) : lineText
+            guard !content.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+            gestureLineRange = nsRange
+            gestureLineIsStruck = content.hasPrefix("~~") && content.hasSuffix("~~") && content.count > 4
+
+        case .changed:
+            guard let lineRange = gestureLineRange else { return }
+            guard isRightSwipe && !gestureLineIsStruck else { clearStrikethroughPreview(); return }
+            updateStrikethroughPreview(for: lineRange, progress: abs(translation.x))
+
+        case .ended:
+            clearStrikethroughPreview()
+            guard let lineRange = gestureLineRange, abs(translation.x) > 60 else {
+                gestureLineRange = nil
+                return
+            }
+            let actionable = isRightSwipe ? !gestureLineIsStruck : gestureLineIsStruck
+            guard actionable else { gestureLineRange = nil; return }
+
+            let lineText = (text as NSString).substring(with: lineRange)
+            let content = lineText.hasSuffix("\n") ? String(lineText.dropLast()) : lineText
+            let suffix = lineText.hasSuffix("\n") ? "\n" : ""
+            let newContent = isRightSwipe ? "~~\(content)~~" : String(content.dropFirst(2).dropLast(2))
+            let savedLocation = selectedRange.location
+            let newRange = NSRange(location: lineRange.location, length: (newContent + suffix).utf16.count)
+
+            textStorage.beginEditing()
+            textStorage.replaceCharacters(in: lineRange, with: newContent + suffix)
+            // New chars inherit attributes from the first replaced character. When removing
+            // strikethrough the first char is a ~~ marker (clear foreground, near-zero font),
+            // so we must restore normal attributes before processEditing fires.
+            if let font = self.font {
+                textStorage.addAttribute(.font, value: font, range: newRange)
+            }
+            if let color = self.textColor {
+                textStorage.addAttribute(.foregroundColor, value: color, range: newRange)
+            }
+            textStorage.endEditing()
+
+            delegate?.textViewDidChange?(self)
+            selectedRange = NSRange(location: min(savedLocation, textStorage.length), length: 0)
+            gestureLineRange = nil
+
+        case .cancelled, .failed:
+            clearStrikethroughPreview()
+            gestureLineRange = nil
+
+        default:
+            break
+        }
+    }
+
+    private func updateStrikethroughPreview(for lineRange: NSRange, progress: CGFloat) {
+        let glyphRange = layoutManager.glyphRange(forCharacterRange: lineRange, actualCharacterRange: nil)
+        guard glyphRange.location != NSNotFound else { return }
+        let lineRect = layoutManager.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
+        guard lineRect != .zero else { return }
+
+        let strikeY = lineRect.midY + lineRect.height * 0.1
+        let startX = lineRect.minX
+        let endX = min(startX + progress, lineRect.maxX)
+
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: startX, y: strikeY))
+        path.addLine(to: CGPoint(x: endX, y: strikeY))
+
+        strikethroughPreviewLayer.strokeColor = UIColor.label.cgColor
+        strikethroughPreviewLayer.path = path.cgPath
+        strikethroughPreviewLayer.opacity = 1
+    }
+
+    private func clearStrikethroughPreview() {
+        strikethroughPreviewLayer.opacity = 0
+        strikethroughPreviewLayer.path = nil
     }
 }
