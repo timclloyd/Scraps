@@ -31,6 +31,7 @@ struct TextEditorView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> EnhancedTextView {
         let layoutManager = TextHighlightManager()
+        layoutManager.normalFont = font
         let textContainer = NSTextContainer(size: .zero)
         textContainer.widthTracksTextView = true
         let textStorage = NSTextStorage()
@@ -66,6 +67,10 @@ struct TextEditorView: UIViewRepresentable {
 
     func updateUIView(_ uiView: EnhancedTextView, context: Context) {
         context.coordinator.parent = self
+
+        if let lm = uiView.textStorage.layoutManagers.first as? TextHighlightManager {
+            lm.normalFont = font
+        }
 
         // Update text if changed
         if uiView.text != text {
@@ -133,7 +138,6 @@ struct TextEditorView: UIViewRepresentable {
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
-            // Keep cursor visible with comfortable padding above keyboard
             scrollToKeepCursorVisible(in: textView)
         }
 
@@ -230,6 +234,25 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
 
     override var canBecomeFirstResponder: Bool {
         return true
+    }
+
+    // When the cursor sits adjacent to a ~~ marker character, UIKit's typingAttributes
+    // inherit the marker's near-zero font and clear colour. Intercept the getter so that
+    // any text inserted at this position (Return, paste, etc.) gets normal appearance.
+    override var typingAttributes: [NSAttributedString.Key: Any] {
+        get {
+            var attrs = super.typingAttributes
+            let font = attrs[.font] as? UIFont
+            // Guard against marker font (near-zero pt) or absent font — both can happen
+            // when the cursor sits adjacent to a ~~ marker char or on a \n that had its
+            // font stripped during processEditing's marker-inheritance cleanup.
+            if font == nil || (font?.pointSize ?? 0) < 0.01 {
+                if let normalFont = self.font { attrs[.font] = normalFont }
+                if let normalColor = textColor { attrs[.foregroundColor] = normalColor }
+            }
+            return attrs
+        }
+        set { super.typingAttributes = newValue }
     }
 
     // Ensures keyboard appears on first tap without requiring double-tap

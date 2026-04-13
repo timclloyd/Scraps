@@ -57,6 +57,8 @@ class TextHighlightManager: NSLayoutManager {
         )
     ].compactMap { $0 }
 
+    var normalFont: UIFont?
+
     private var isProcessing = false
     private let urlDetector: NSDataDetector? = {
         return try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
@@ -98,7 +100,11 @@ class TextHighlightManager: NSLayoutManager {
         }
         for range in markerInheritedRanges {
             textStorage.removeAttribute(.foregroundColor, range: range)
-            textStorage.removeAttribute(.font, range: range)
+            if let font = normalFont {
+                textStorage.addAttribute(.font, value: font, range: range)
+            } else {
+                textStorage.removeAttribute(.font, range: range)
+            }
         }
 
         // Clear styling attributes from edited range, then restore foreground color to the

@@ -232,11 +232,7 @@ struct MainView: View {
             .padding(.horizontal, Theme.horizontalPadding - Theme.horizontalPaddingBackground)
             .padding(.bottom, Theme.separatorVerticalPadding - Theme.horizontalPaddingBackground)
         }
-        .background(
-            showsFocusBackground && scrap.id == documentManager.focusedScrapID ?
-                Color(uiColor: Theme.focusBackgroundColor(for: UITraitCollection.current)) :
-                Color.clear
-        )
+        .background(Color(.systemBackground))
         .cornerRadius(12)
         .padding(.horizontal, Theme.horizontalPaddingBackground)
         .id(scrap.id)
