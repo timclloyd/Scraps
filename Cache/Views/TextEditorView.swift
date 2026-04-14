@@ -320,6 +320,9 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
             // Place cursor at end of modified line so scroll-to-cursor stays on the swiped line
             selectedRange = NSRange(location: lineRange.location + newContent.utf16.count, length: 0)
 
+            UIImpactFeedbackGenerator(style: Theme.strikethroughHapticStyle).impactOccurred()
+            AudioServicesPlaySystemSound(Preferences.strikethroughSoundID)
+
             delegate?.textViewDidChange?(self)
 
             gestureLineRange = nil

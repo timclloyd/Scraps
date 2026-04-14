@@ -33,6 +33,7 @@ enum Theme {
     //MARK: Colours
 
     static let archiveBackground = Color(.systemGray6)
+    static let strikethroughHapticStyle = UIImpactFeedbackGenerator.FeedbackStyle.medium
 
     static let linkColor = UIColor.systemGray3
 
