@@ -36,7 +36,7 @@ This file requires periodic updates as the codebase evolves. To keep it accurate
 Unlike typical note apps with a single text file, Scraps uses **multiple text documents** (one per scrap):
 - Each scrap is a separate `.txt` file in iCloud: `scrap-YYYY-MM-DD-HHmmss.txt`
 - Files are sorted chronologically (oldest first)
-- New scraps are automatically created after a time threshold (see `Preferences.newScrapThresholdSeconds`)
+- New scraps are automatically created when the app returns from background on a new calendar day (checked via `calendar.isDate(_:inSameDayAs:)` against the latest scrap's timestamp)
 - Empty scraps are automatically deleted when the app backgrounds
 
 ### iCloud Sync Pattern (Critical)
