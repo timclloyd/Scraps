@@ -40,7 +40,6 @@ struct LatestScrapPanelView: View {
             .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
             .animation(.easeOut(duration: 0.25), value: keyboardHeight)
             .background(Color(uiColor: .systemBackground))
-            .clipShape(shape)
             .overlay(alignment: .top) {
                 SmoothLinearGradient(
                     from: Color(uiColor: .systemBackground).opacity(0.9),
@@ -50,10 +49,11 @@ struct LatestScrapPanelView: View {
                 .frame(height: Theme.topFadeHeight)
                 .allowsHitTesting(false)
             }
+            .clipShape(shape)
             .ignoresSafeArea(edges: .bottom)
         }
         .overlay(alignment: .top) {
-            shape.strokeBorder(Color(uiColor: .separator), lineWidth: 1)
+            shape.strokeBorder(Color(Theme.separatorColor), lineWidth: 1)
         }
     }
 }

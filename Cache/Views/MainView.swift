@@ -55,6 +55,10 @@ struct MainView: View {
         UIFont(name: Theme.font, size: Theme.textSize) ?? UIFont.systemFont(ofSize: Theme.textSize)
     }
 
+    private var keyboardBackgroundColor: Color {
+        viewMode == .latest ? Color(uiColor: .systemBackground) : Theme.archiveBackground
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .top) {
@@ -69,7 +73,7 @@ struct MainView: View {
                     // Solid background behind keyboard to prevent text showing through
                     VStack {
                         Spacer()
-                        Color(uiColor: .systemBackground)
+                        keyboardBackgroundColor
                             .frame(height: keyboardTracker.height)
                     }
                     .allowsHitTesting(false)
@@ -79,8 +83,8 @@ struct MainView: View {
                     VStack {
                         Spacer()
                         SmoothLinearGradient(
-                            from: Color(uiColor: .systemBackground).opacity(0),
-                            to: Color(uiColor: .systemBackground).opacity(0.9),
+                            from: keyboardBackgroundColor.opacity(0),
+                            to: keyboardBackgroundColor.opacity(0.9),
                             startPoint: .top, endPoint: .bottom, curve: .easeIn
                         )
                         .frame(height: Theme.bottomFadeHeight)
@@ -90,6 +94,7 @@ struct MainView: View {
                     .allowsHitTesting(false)
                 }
                 .padding(.top, Theme.horizontalPaddingBackground)
+                .background(Theme.archiveBackground)
 
                 // Toolbar — higher z-order so it always wins hit tests, extends into status bar
                 ToolbarView(
@@ -101,6 +106,7 @@ struct MainView: View {
                 .ignoresSafeArea(edges: .top)
             }
         }
+        .background(Theme.archiveBackground)
         .ignoresSafeArea(edges: .bottom)
     }
 

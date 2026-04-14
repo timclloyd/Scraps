@@ -19,7 +19,7 @@ struct ToolbarView: View {
         }
         .frame(height: topHeight)
         .padding(.horizontal, Theme.horizontalPadding)
-        .background(Color(uiColor: .systemBackground))
+        .background(Theme.archiveBackground)
     }
 
     private var modeToggleButton: some View {

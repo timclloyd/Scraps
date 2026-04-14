@@ -20,6 +20,7 @@ struct ArchiveListView: View {
                             scrap: scrap,
                             showsSeparator: scrap.id != documentManager.scraps.first?.id,
                             autoFocus: false,
+                            cardBackground: .clear,
                             editorFont: editorFont
                         )
                     }
@@ -27,14 +28,15 @@ struct ArchiveListView: View {
                 .padding(.top, Theme.verticalPadding)
                 .padding(.bottom, Theme.textSize)
             }
+            .background(Theme.archiveBackground)
             .scrollDismissesKeyboard(.never)
             .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
             .animation(.easeOut(duration: 0.25), value: keyboardHeight)
             .ignoresSafeArea(edges: .bottom)
             .overlay(alignment: .top) {
                 SmoothLinearGradient(
-                    from: Color(uiColor: .systemBackground).opacity(0.9),
-                    to: Color(uiColor: .systemBackground).opacity(0),
+                    from: Theme.archiveBackground,
+                    to: Theme.archiveBackground.opacity(0),
                     startPoint: .top, endPoint: .bottom, curve: .easeOut
                 )
                 .frame(height: Theme.topFadeHeight)

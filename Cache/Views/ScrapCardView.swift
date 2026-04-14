@@ -10,6 +10,7 @@ struct ScrapCardView: View {
     let showsSeparator: Bool
     let autoFocus: Bool
     var topPadding: CGFloat = Theme.textSize
+    var cardBackground: Color = Color(.systemBackground)
     let editorFont: UIFont
 
     var body: some View {
@@ -29,7 +30,7 @@ struct ScrapCardView: View {
             .padding(.horizontal, Theme.horizontalPadding - Theme.horizontalPaddingBackground)
             .padding(.bottom, Theme.separatorVerticalPadding - Theme.horizontalPaddingBackground)
         }
-        .background(Color(.systemBackground))
+        .background(cardBackground)
         .cornerRadius(12)
         .padding(.horizontal, Theme.horizontalPaddingBackground)
         .id(scrap.id)

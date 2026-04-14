@@ -31,7 +31,9 @@ enum Theme {
     static let cursorScrollPadding: CGFloat = textSize * 2
     
     //MARK: Colours
-    
+
+    static let archiveBackground = Color(.systemGray6)
+
     static let linkColor = UIColor.systemGray3
 
     static let separatorColor = UIColor { traitCollection in
