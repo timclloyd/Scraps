@@ -50,6 +50,9 @@ struct MainView: View {
     @State private var viewMode: ViewMode = .latest
     @State private var priorMode: ViewMode = .latest
     @StateObject private var keyboardTracker = KeyboardTracker()
+    @State private var searchQuery: String = ""
+    @State private var searchMatches: [(scrapID: String, range: NSRange)] = []
+    @State private var currentMatchIndex: Int = 0
 
     private var editorFont: UIFont {
         UIFont(name: Theme.font, size: Theme.textSize) ?? UIFont.systemFont(ofSize: Theme.textSize)
@@ -59,11 +62,22 @@ struct MainView: View {
         viewMode == .latest ? Color(uiColor: .systemBackground) : Theme.archiveBackground
     }
 
+    private var activeMatch: (scrapID: String, range: NSRange)? {
+        guard !searchMatches.isEmpty else { return nil }
+        return searchMatches[currentMatchIndex]
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .top) {
                 ZStack {
-                    ArchiveListView(keyboardHeight: keyboardTracker.height, editorFont: editorFont)
+                    ArchiveListView(
+                        keyboardHeight: keyboardTracker.height,
+                        editorFont: editorFont,
+                        searchQuery: searchQuery,
+                        activeMatchScrapID: activeMatch?.scrapID,
+                        activeMatchRange: activeMatch?.range
+                    )
 
                     LatestScrapPanelView(keyboardHeight: keyboardTracker.height, viewMode: viewMode, editorFont: editorFont)
                         .offset(y: viewMode == .latest ? 0 : geometry.size.height)
@@ -93,8 +107,24 @@ struct MainView: View {
                     .ignoresSafeArea(edges: .bottom)
                     .allowsHitTesting(false)
                 }
-                .padding(.top, Theme.horizontalPaddingBackground)
+                .padding(.top, viewMode == .search ? Theme.horizontalPaddingBackground + 44 : Theme.horizontalPaddingBackground)
+                .animation(.spring(response: 0.28, dampingFraction: 0.82), value: viewMode == .search)
                 .background(Theme.archiveBackground)
+
+                // Search bar — sits at the ZStack's safe-area top, i.e. directly below the toolbar
+                if viewMode == .search {
+                    VStack(spacing: 0) {
+                        SearchBarView(
+                            query: $searchQuery,
+                            matchCount: searchMatches.count,
+                            currentMatchIndex: currentMatchIndex,
+                            onPrev: prevMatch,
+                            onNext: nextMatch
+                        )
+                        Spacer()
+                    }
+                    .transition(.opacity)
+                }
 
                 // Toolbar — higher z-order so it always wins hit tests, extends into status bar
                 ToolbarView(
@@ -108,6 +138,11 @@ struct MainView: View {
         }
         .background(Theme.archiveBackground)
         .ignoresSafeArea(edges: .bottom)
+        .onChange(of: searchQuery) { _, query in
+            let matches = computeMatches(for: query)
+            searchMatches = matches
+            currentMatchIndex = 0
+        }
     }
 
     // MARK: - Navigation
@@ -116,7 +151,10 @@ struct MainView: View {
         switch viewMode {
         case .latest:
             transitionToArchive()
-        case .archive, .search:
+        case .archive:
+            transitionToLatest()
+        case .search:
+            clearSearch()
             transitionToLatest()
         }
     }
@@ -124,6 +162,7 @@ struct MainView: View {
     private func toggleSearch() {
         switch viewMode {
         case .search:
+            clearSearch()
             if priorMode == .archive {
                 withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
                     viewMode = .archive
@@ -160,5 +199,40 @@ struct MainView: View {
 
     private func dismissKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    // MARK: - Search
+
+    private func computeMatches(for query: String) -> [(scrapID: String, range: NSRange)] {
+        guard !query.isEmpty else { return [] }
+        var matches: [(String, NSRange)] = []
+        for scrap in documentManager.scraps {
+            let text = scrap.document.text as NSString
+            var searchRange = NSRange(location: 0, length: text.length)
+            while searchRange.length > 0 {
+                let range = text.range(of: query, options: .caseInsensitive, range: searchRange)
+                guard range.location != NSNotFound else { break }
+                matches.append((scrap.id, range))
+                let next = range.upperBound
+                searchRange = NSRange(location: next, length: text.length - next)
+            }
+        }
+        return matches
+    }
+
+    private func nextMatch() {
+        guard !searchMatches.isEmpty else { return }
+        currentMatchIndex = (currentMatchIndex + 1) % searchMatches.count
+    }
+
+    private func prevMatch() {
+        guard !searchMatches.isEmpty else { return }
+        currentMatchIndex = (currentMatchIndex - 1 + searchMatches.count) % searchMatches.count
+    }
+
+    private func clearSearch() {
+        searchQuery = ""
+        searchMatches = []
+        currentMatchIndex = 0
     }
 }

@@ -10,6 +10,9 @@ struct ArchiveListView: View {
     @EnvironmentObject var documentManager: DocumentManager
     let keyboardHeight: CGFloat
     let editorFont: UIFont
+    var searchQuery: String = ""
+    var activeMatchScrapID: String? = nil
+    var activeMatchRange: NSRange? = nil
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -21,7 +24,9 @@ struct ArchiveListView: View {
                             showsSeparator: scrap.id != documentManager.scraps.first?.id,
                             autoFocus: false,
                             cardBackground: .clear,
-                            editorFont: editorFont
+                            editorFont: editorFont,
+                            searchQuery: searchQuery,
+                            activeSearchRange: scrap.id == activeMatchScrapID ? activeMatchRange : nil
                         )
                     }
                 }
@@ -47,6 +52,14 @@ struct ArchiveListView: View {
             }
             .onChange(of: documentManager.scraps.count) { _, _ in
                 scrollToLatest(using: proxy)
+            }
+            .onChange(of: activeMatchScrapID) { _, id in
+                guard let id else { return }
+                DispatchQueue.main.async {
+                    withAnimation {
+                        proxy.scrollTo(id, anchor: .center)
+                    }
+                }
             }
         }
     }

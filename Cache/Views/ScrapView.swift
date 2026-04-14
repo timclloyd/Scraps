@@ -13,6 +13,8 @@ struct ScrapView: View {
     @ObservedObject var document: TextDocument
     let font: UIFont
     var isInitialFocus: Bool = false
+    var searchQuery: String = ""
+    var activeSearchRange: NSRange? = nil
 
     @EnvironmentObject var documentManager: DocumentManager
 
@@ -34,7 +36,9 @@ struct ScrapView: View {
                 if documentManager.isReady {
                     UserDefaults.standard.set(scrap.filename, forKey: "lastFocusedScrapFilename")
                 }
-            }
+            },
+            searchQuery: searchQuery,
+            activeSearchRange: activeSearchRange
         )
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -22,6 +22,8 @@ struct TextEditorView: UIViewRepresentable {
     var isInitialFocus: Bool = false
     var scrapID: String?
     var onBecomeFocused: ((String) -> Void)?
+    var searchQuery: String = ""
+    var activeSearchRange: NSRange? = nil
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: EnhancedTextView, context: Context) -> CGSize? {
         // Tell SwiftUI to use the proposed width but let height grow based on content
@@ -71,11 +73,23 @@ struct TextEditorView: UIViewRepresentable {
 
         if let lm = uiView.textStorage.layoutManagers.first as? TextHighlightManager {
             lm.normalFont = font
+            lm.searchQuery = searchQuery
+            lm.activeSearchRange = activeSearchRange
         }
 
         // Update text if changed
         if uiView.text != text {
             uiView.text = text
+        }
+
+        // Scroll to active search match when it changes
+        if activeSearchRange != context.coordinator.lastActiveSearchRange {
+            context.coordinator.lastActiveSearchRange = activeSearchRange
+            if let range = activeSearchRange {
+                DispatchQueue.main.async {
+                    context.coordinator.scrollToRange(range, in: uiView)
+                }
+            }
         }
 
         // Reset so next isInitialFocus = true transition triggers becomeFirstResponder again
@@ -102,6 +116,7 @@ struct TextEditorView: UIViewRepresentable {
         var parent: TextEditorView
         var hasFocused = false
         weak var textView: UITextView?
+        var lastActiveSearchRange: NSRange?
         private var keyboardDidShowObserver: NSObjectProtocol?
 
         init(_ parent: TextEditorView) {
@@ -170,6 +185,16 @@ struct TextEditorView: UIViewRepresentable {
             let rectInScrollView = textView.convert(cursorRect, to: scrollView)
 
             // Scroll to make the padded rect visible
+            scrollView.scrollRectToVisible(rectInScrollView, animated: true)
+        }
+
+        func scrollToRange(_ range: NSRange, in textView: UITextView) {
+            let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            guard glyphRange.location != NSNotFound else { return }
+            var rect = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
+            rect = rect.insetBy(dx: -8, dy: -Theme.cursorScrollPadding)
+            guard let scrollView = findParentScrollView(from: textView) else { return }
+            let rectInScrollView = textView.convert(rect, to: scrollView)
             scrollView.scrollRectToVisible(rectInScrollView, animated: true)
         }
 
