@@ -134,6 +134,7 @@ struct MainView: View {
         case .latest, .archive:
             priorMode = viewMode
             dismissKeyboard()
+            if viewMode == .latest { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
             withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
                 viewMode = .search
             }
@@ -142,12 +143,14 @@ struct MainView: View {
 
     private func transitionToArchive() {
         dismissKeyboard()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
             viewMode = .archive
         }
     }
 
     private func transitionToLatest() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
             viewMode = .latest
         } completion: {
