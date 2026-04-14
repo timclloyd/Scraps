@@ -67,6 +67,24 @@ enum Theme {
         }
     }
     
+    static let searchHighlightColor = UIColor { traitCollection in
+        switch traitCollection.userInterfaceStyle {
+        case .dark:
+            return UIColor.systemPurple.withAlphaComponent(0.25)
+        default:
+            return UIColor.systemPurple.withAlphaComponent(0.25)
+        }
+    }
+
+    static let searchActiveHighlightColor = UIColor { traitCollection in
+        switch traitCollection.userInterfaceStyle {
+        case .dark:
+            return UIColor.systemPurple.withAlphaComponent(0.55)
+        default:
+            return UIColor.systemPurple.withAlphaComponent(0.55)
+        }
+    }
+
     static func cursorColor(for traitCollection: UITraitCollection) -> UIColor {
         UIColor { traitCollection in
             switch traitCollection.userInterfaceStyle {

@@ -150,8 +150,8 @@ class TextHighlightManager: NSLayoutManager {
         let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
         let text = storage.string as NSString
 
-        let inactiveColour = UIColor.systemYellow.withAlphaComponent(0.35)
-        let activeColour = UIColor.systemOrange.withAlphaComponent(0.65)
+        let inactiveColour = Theme.searchHighlightColor
+        let activeColour = Theme.searchActiveHighlightColor
 
         var searchRange = charRange
         while searchRange.length > 0 {
