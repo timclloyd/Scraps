@@ -65,9 +65,6 @@ class TextHighlightManager: NSLayoutManager {
     }()
     private lazy var strikeRegex: NSRegularExpression? = try? NSRegularExpression(pattern: "~~.+?~~")
 
-    // Near-zero font used to collapse ~~ marker characters to invisible zero-width glyphs
-    private static let markerFont = UIFont.systemFont(ofSize: 0.001)
-
     override func processEditing(for textStorage: NSTextStorage,
                                edited editMask: NSTextStorage.EditActions,
                                range newCharRange: NSRange,
@@ -88,24 +85,6 @@ class TextHighlightManager: NSLayoutManager {
         let processRange = (text as NSString).lineRange(for: newCharRange)
 
         textStorage.beginEditing()
-
-        // Clean up any marker attributes inherited by new characters when ~~ was deleted.
-        // NSTextStorage applies the first replaced character's attributes to inserted text,
-        // so content replacing ~~ markers inherits .foregroundColor = .clear and .font = tiny.
-        var markerInheritedRanges = [NSRange]()
-        textStorage.enumerateAttribute(.font, in: processRange, options: []) { value, range, _ in
-            if let font = value as? UIFont, font.pointSize < 0.01 {
-                markerInheritedRanges.append(range)
-            }
-        }
-        for range in markerInheritedRanges {
-            textStorage.removeAttribute(.foregroundColor, range: range)
-            if let font = normalFont {
-                textStorage.addAttribute(.font, value: font, range: range)
-            } else {
-                textStorage.removeAttribute(.font, range: range)
-            }
-        }
 
         // Clear styling attributes from edited range, then restore foreground color to the
         // standard label color so struck-through gray doesn't linger if markers are removed
@@ -139,19 +118,11 @@ class TextHighlightManager: NSLayoutManager {
             }
         }
 
-        // Apply strikethrough for ~~text~~ patterns.
-        // The ~~ markers are made invisible and near-zero-width via font+color attributes.
+        // Apply strikethrough for ~~text~~ patterns, markers and content included.
         strikeRegex?.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
             guard let matchRange = match?.range, matchRange.upperBound <= textStorage.length else { return }
             textStorage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: matchRange)
-            let openMarker = NSRange(location: matchRange.location, length: 2)
-            let closeMarker = NSRange(location: matchRange.upperBound - 2, length: 2)
-            let contentRange = NSRange(location: matchRange.location + 2, length: matchRange.length - 4)
-            textStorage.addAttribute(.foregroundColor, value: UIColor.systemGray3, range: contentRange)
-            for markerRange in [openMarker, closeMarker] {
-                textStorage.addAttribute(.foregroundColor, value: UIColor.clear, range: markerRange)
-                textStorage.addAttribute(.font, value: TextHighlightManager.markerFont, range: markerRange)
-            }
+            textStorage.addAttribute(.foregroundColor, value: UIColor.systemGray3, range: matchRange)
         }
 
         textStorage.endEditing()

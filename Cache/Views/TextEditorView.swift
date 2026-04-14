@@ -236,25 +236,6 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
         return true
     }
 
-    // When the cursor sits adjacent to a ~~ marker character, UIKit's typingAttributes
-    // inherit the marker's near-zero font and clear colour. Intercept the getter so that
-    // any text inserted at this position (Return, paste, etc.) gets normal appearance.
-    override var typingAttributes: [NSAttributedString.Key: Any] {
-        get {
-            var attrs = super.typingAttributes
-            let font = attrs[.font] as? UIFont
-            // Guard against marker font (near-zero pt) or absent font — both can happen
-            // when the cursor sits adjacent to a ~~ marker char or on a \n that had its
-            // font stripped during processEditing's marker-inheritance cleanup.
-            if font == nil || (font?.pointSize ?? 0) < 0.01 {
-                if let normalFont = self.font { attrs[.font] = normalFont }
-                if let normalColor = textColor { attrs[.foregroundColor] = normalColor }
-            }
-            return attrs
-        }
-        set { super.typingAttributes = newValue }
-    }
-
     // Ensures keyboard appears on first tap without requiring double-tap
     // Improves UX for quick text entry
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -314,15 +295,20 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
             let lineText = (text as NSString).substring(with: lineRange)
             let content = lineText.hasSuffix("\n") ? String(lineText.dropLast()) : lineText
             let suffix = lineText.hasSuffix("\n") ? "\n" : ""
-            let newContent = isRightSwipe ? "~~\(content)~~" : String(content.dropFirst(2).dropLast(2))
+            let newContent: String
+            if isRightSwipe {
+                newContent = "~~\(content)~~"
+            } else {
+                let canRemove = content.hasPrefix("~~") && content.hasSuffix("~~") && content.count > 4
+                newContent = canRemove ? String(content.dropFirst(2).dropLast(2)) : content
+            }
             let savedLocation = selectedRange.location
             let newRange = NSRange(location: lineRange.location, length: (newContent + suffix).utf16.count)
 
             textStorage.beginEditing()
             textStorage.replaceCharacters(in: lineRange, with: newContent + suffix)
-            // New chars inherit attributes from the first replaced character. When removing
-            // strikethrough the first char is a ~~ marker (clear foreground, near-zero font),
-            // so we must restore normal attributes before processEditing fires.
+            // New chars inherit attributes from the first replaced character (gray foreground,
+            // strikethrough). Restore normal attributes so processEditing sees a clean slate.
             if let font = self.font {
                 textStorage.addAttribute(.font, value: font, range: newRange)
             }
@@ -332,7 +318,27 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
             textStorage.endEditing()
 
             delegate?.textViewDidChange?(self)
-            selectedRange = NSRange(location: min(savedLocation, textStorage.length), length: 0)
+
+            // Adjust cursor for the ~~ chars added/removed at both ends of the line.
+            // Positions before the trailing marker only need +/-2 (leading pair);
+            // positions at or after the trailing marker need +/-4 (both pairs).
+            let adjustedLocation: Int
+            if savedLocation >= lineRange.location && savedLocation <= lineRange.upperBound {
+                if isRightSwipe {
+                    let trailingInsertPos = lineRange.location + content.utf16.count
+                    adjustedLocation = savedLocation >= trailingInsertPos ? savedLocation + 4 : savedLocation + 2
+                } else {
+                    let trailingMarkerStart = lineRange.location + content.utf16.count - 2
+                    if savedLocation >= trailingMarkerStart {
+                        adjustedLocation = lineRange.location + content.utf16.count - 4
+                    } else {
+                        adjustedLocation = max(lineRange.location, savedLocation - 2)
+                    }
+                }
+            } else {
+                adjustedLocation = savedLocation
+            }
+            selectedRange = NSRange(location: min(adjustedLocation, textStorage.length), length: 0)
             gestureLineRange = nil
 
         case .cancelled, .failed:

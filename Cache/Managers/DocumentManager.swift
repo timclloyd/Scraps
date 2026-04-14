@@ -11,9 +11,6 @@ class DocumentManager: ObservableObject {
 
     private var documentObservers: [ObjectIdentifier: NSObjectProtocol] = [:]
 
-    // Scrap creation tracking
-    private let lastCloseTimeKey = "lastCloseTime"
-    private let lastFocusedScrapFilenameKey = "lastFocusedScrapFilename"
     private var hasBackgrounded = false
     private var isInitialLoad = true
     private let calendar = Calendar.current
@@ -52,7 +49,7 @@ class DocumentManager: ObservableObject {
                     focus(on: newScrap)
                 }
             } else {
-                // Quick return - restore previous focus using filename
+                // Quick return - focus latest scrap
                 focusLatestScrap()
             }
 
@@ -168,17 +165,9 @@ class DocumentManager: ObservableObject {
     }
 
     func saveLastCloseTime() {
-        // Only save once per background event
+        // Only run once per background event
         guard !hasBackgrounded else { return }
         hasBackgrounded = true
-
-        let now = Date()
-        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: lastCloseTimeKey)
-
-        // Save currently focused scrap filename for restoration on quick return
-        if let focusedFilename = focusedScrapFilename {
-            UserDefaults.standard.set(focusedFilename, forKey: lastFocusedScrapFilenameKey)
-        }
     }
 
     func resetBackgroundFlag() {
@@ -392,7 +381,6 @@ class DocumentManager: ObservableObject {
         guard focusedScrapID != scrap.id || focusedScrapFilename != scrap.filename else { return }
         focusedScrapID = scrap.id
         focusedScrapFilename = scrap.filename
-        UserDefaults.standard.set(scrap.filename, forKey: lastFocusedScrapFilenameKey)
     }
 
     private func handleDocumentStateChanged(_ notification: Notification) {

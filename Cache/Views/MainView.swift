@@ -10,6 +10,36 @@ import SwiftUI
 import SmoothGradient
 import UIKit
 
+private final class KeyboardTracker: ObservableObject {
+    @Published var height: CGFloat = 0
+
+    private var observers: [NSObjectProtocol] = []
+
+    init() {
+        let show = NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillShowNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                self?.height = frame.height
+            }
+        }
+        let hide = NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillHideNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.height = 0
+        }
+        observers = [show, hide]
+    }
+
+    deinit {
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+}
+
 struct MainView: View {
     private enum ViewMode {
         case latest
@@ -20,8 +50,7 @@ struct MainView: View {
     @EnvironmentObject var documentManager: DocumentManager
     @State private var viewMode: ViewMode = .latest
     @State private var priorMode: ViewMode = .latest
-    @State private var keyboardHeight: CGFloat = 0
-    @State private var keyboardObservers: [NSObjectProtocol] = []
+    @StateObject private var keyboardTracker = KeyboardTracker()
 
     private var editorFont: UIFont {
         UIFont(name: Theme.font, size: Theme.textSize) ?? UIFont.systemFont(ofSize: Theme.textSize)
@@ -45,7 +74,7 @@ struct MainView: View {
                     VStack {
                         Spacer()
                         Color(uiColor: .systemBackground)
-                            .frame(height: keyboardHeight)
+                            .frame(height: keyboardTracker.height)
                     }
                     .allowsHitTesting(false)
                     .ignoresSafeArea(edges: .bottom)
@@ -60,7 +89,7 @@ struct MainView: View {
                         )
                         .frame(height: Theme.bottomFadeHeight)
                     }
-                    .padding(.bottom, keyboardHeight)
+                    .padding(.bottom, keyboardTracker.height)
                     .ignoresSafeArea(edges: .bottom)
                     .allowsHitTesting(false)
                 }
@@ -73,12 +102,6 @@ struct MainView: View {
             }
         }
         .ignoresSafeArea(edges: .bottom)
-        .onAppear {
-            subscribeToKeyboardNotifications()
-        }
-        .onDisappear {
-            unsubscribeFromKeyboardNotifications()
-        }
     }
 
     // MARK: - Subviews
@@ -151,8 +174,8 @@ struct MainView: View {
             }
             .scrollDismissesKeyboard(.never)
             .scrollIndicators(.hidden)
-            .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
-            .animation(.easeOut(duration: 0.25), value: keyboardHeight)
+            .contentMargins(.bottom, keyboardTracker.height, for: .scrollContent)
+            .animation(.easeOut(duration: 0.25), value: keyboardTracker.height)
             .background(Color(uiColor: .systemBackground))
             .clipShape(shape)
             .overlay(alignment: .top) {
@@ -188,8 +211,8 @@ struct MainView: View {
                 .padding(.bottom, Theme.textSize)
             }
             .scrollDismissesKeyboard(.never)
-            .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
-            .animation(.easeOut(duration: 0.25), value: keyboardHeight)
+            .contentMargins(.bottom, keyboardTracker.height, for: .scrollContent)
+            .animation(.easeOut(duration: 0.25), value: keyboardTracker.height)
             .ignoresSafeArea(edges: .bottom)
             .overlay(alignment: .top) {
                 SmoothLinearGradient(
@@ -286,39 +309,6 @@ struct MainView: View {
         DispatchQueue.main.async {
             proxy.scrollTo(latestScrap.id, anchor: .bottom)
         }
-    }
-
-    // MARK: - Keyboard Tracking
-
-    private func subscribeToKeyboardNotifications() {
-        unsubscribeFromKeyboardNotifications()
-
-        let showObserver = NotificationCenter.default.addObserver(
-            forName: UIResponder.keyboardWillShowNotification,
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                keyboardHeight = keyboardFrame.height
-            }
-        }
-
-        let hideObserver = NotificationCenter.default.addObserver(
-            forName: UIResponder.keyboardWillHideNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            keyboardHeight = 0
-        }
-
-        keyboardObservers = [showObserver, hideObserver]
-    }
-
-    private func unsubscribeFromKeyboardNotifications() {
-        for observer in keyboardObservers {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        keyboardObservers.removeAll()
     }
 
 }
