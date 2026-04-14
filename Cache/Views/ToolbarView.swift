@@ -29,6 +29,7 @@ struct ToolbarView: View {
                 Image(systemName: viewMode == .latest ? "tray.full" : "calendar")
             }
             .font(.custom(Theme.font, size: Theme.separatorFontSize))
+            .fontWeight(.medium)
             .foregroundColor(Color(uiColor: .label))
             .padding(.top, 8)
         }
@@ -42,6 +43,7 @@ struct ToolbarView: View {
                 Text("SEARCH")
             }
             .font(.custom(Theme.font, size: Theme.separatorFontSize))
+            .fontWeight(.medium)
             .foregroundColor(Color(uiColor: .label))
             .padding(10)
         }
