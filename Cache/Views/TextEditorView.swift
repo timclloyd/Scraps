@@ -12,6 +12,7 @@
 //    (shake gesture, tap-to-focus, custom styling, keyboard behavior)
 
 import SwiftUI
+import AudioToolbox
 
 // MARK: - TextEditorView (Public SwiftUI Component)
 
@@ -302,7 +303,6 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
                 let canRemove = content.hasPrefix("~~") && content.hasSuffix("~~") && content.count > 4
                 newContent = canRemove ? String(content.dropFirst(2).dropLast(2)) : content
             }
-            let savedLocation = selectedRange.location
             let newRange = NSRange(location: lineRange.location, length: (newContent + suffix).utf16.count)
 
             textStorage.beginEditing()
@@ -317,28 +317,11 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
             }
             textStorage.endEditing()
 
+            // Place cursor at end of modified line so scroll-to-cursor stays on the swiped line
+            selectedRange = NSRange(location: lineRange.location + newContent.utf16.count, length: 0)
+
             delegate?.textViewDidChange?(self)
 
-            // Adjust cursor for the ~~ chars added/removed at both ends of the line.
-            // Positions before the trailing marker only need +/-2 (leading pair);
-            // positions at or after the trailing marker need +/-4 (both pairs).
-            let adjustedLocation: Int
-            if savedLocation >= lineRange.location && savedLocation <= lineRange.upperBound {
-                if isRightSwipe {
-                    let trailingInsertPos = lineRange.location + content.utf16.count
-                    adjustedLocation = savedLocation >= trailingInsertPos ? savedLocation + 4 : savedLocation + 2
-                } else {
-                    let trailingMarkerStart = lineRange.location + content.utf16.count - 2
-                    if savedLocation >= trailingMarkerStart {
-                        adjustedLocation = lineRange.location + content.utf16.count - 4
-                    } else {
-                        adjustedLocation = max(lineRange.location, savedLocation - 2)
-                    }
-                }
-            } else {
-                adjustedLocation = savedLocation
-            }
-            selectedRange = NSRange(location: min(adjustedLocation, textStorage.length), length: 0)
             gestureLineRange = nil
 
         case .cancelled, .failed:

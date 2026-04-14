@@ -26,7 +26,7 @@ struct ToolbarView: View {
         Button(action: onToggleMode) {
             HStack(spacing: 4) {
                 Text(viewMode == .latest ? "SCRAPS" : "TODAY")
-                Image(systemName: viewMode == .latest ? "tray.full" : "calendar")
+                Image(systemName: viewMode == .latest ? "archivebox" : "calendar")
             }
             .font(.custom(Theme.font, size: Theme.separatorFontSize))
             .fontWeight(.medium)
