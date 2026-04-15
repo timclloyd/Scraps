@@ -59,37 +59,35 @@ class DocumentManager: ObservableObject {
         }
     }
 
-    // Two-phase load used only at init: opens the latest scrap first so the UI becomes
-    // interactive immediately, then loads older scraps in the background.
-    private func loadScrapsInitial() async {
+    // Returns sorted scrap file URLs (oldest first), creating the Documents directory if needed.
+    // Returns nil on error, empty array if no scraps exist yet.
+    private func enumeratedScrapFiles() throws -> [URL]? {
         guard let documentsURL = documentsDirectoryURL else {
             print("Error: Could not get iCloud documents directory URL")
-            return
+            return nil
         }
 
         if !FileManager.default.fileExists(atPath: documentsURL.path) {
-            do {
-                try FileManager.default.createDirectory(at: documentsURL, withIntermediateDirectories: true)
-            } catch {
-                print("Error creating Documents directory: \(error)")
-                return
-            }
+            try FileManager.default.createDirectory(at: documentsURL, withIntermediateDirectories: true)
         }
 
-        do {
-            let contents = try FileManager.default.contentsOfDirectory(
-                at: documentsURL,
-                includingPropertiesForKeys: nil
-            )
+        let contents = try FileManager.default.contentsOfDirectory(
+            at: documentsURL,
+            includingPropertiesForKeys: nil
+        )
+        return try normalizeLegacyScrapFiles(in: contents)
+    }
 
-            let scrapFiles = try normalizeLegacyScrapFiles(in: contents)
-            guard !scrapFiles.isEmpty else { return }
+    // Two-phase load used only at init: opens the latest scrap first so the UI becomes
+    // interactive immediately, then loads older scraps in the background.
+    private func loadScrapsInitial() async {
+        do {
+            guard let scrapFiles = try enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
 
             // Filenames encode the timestamp, so descending lexicographic order = latest first
             let sortedFiles = scrapFiles.sorted { $0.lastPathComponent > $1.lastPathComponent }
 
             // Phase 1: open the latest scrap immediately so the panel and keyboard appear
-            var latestScrap: Scrap? = nil
             if let latestFile = sortedFiles.first {
                 let filename = latestFile.lastPathComponent
                 if let timestamp = Scrap.parseTimestamp(from: filename) {
@@ -100,7 +98,6 @@ class DocumentManager: ObservableObject {
                     }
                     if success {
                         attachObserver(to: document)
-                        latestScrap = scrap
                         scraps = [scrap]
                         focusLatestScrap()
                     } else {
@@ -144,34 +141,8 @@ class DocumentManager: ObservableObject {
     }
 
     private func loadScraps() async {
-        guard let documentsURL = documentsDirectoryURL else {
-            print("Error: Could not get iCloud documents directory URL")
-            return
-        }
-
-        // Ensure Documents directory exists
-        if !FileManager.default.fileExists(atPath: documentsURL.path) {
-            do {
-                try FileManager.default.createDirectory(at: documentsURL, withIntermediateDirectories: true)
-            } catch {
-                print("Error creating Documents directory: \(error)")
-                return
-            }
-        }
-
-        // Enumerate existing scrap files
         do {
-            let contents = try FileManager.default.contentsOfDirectory(
-                at: documentsURL,
-                includingPropertiesForKeys: nil
-            )
-
-            let scrapFiles = try normalizeLegacyScrapFiles(in: contents)
-
-            if scrapFiles.isEmpty {
-                // No scraps exist, will create first one in init
-                return
-            }
+            guard let scrapFiles = try enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
 
             // Open all documents concurrently
             let loadedScraps = await withTaskGroup(of: (Scrap, Bool).self, returning: [Scrap].self) { group in

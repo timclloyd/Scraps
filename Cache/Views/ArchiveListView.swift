@@ -49,9 +49,6 @@ struct ArchiveListView: View {
                 .frame(height: Theme.topFadeHeight)
                 .allowsHitTesting(false)
             }
-            .onAppear {
-                scrollToLatest(using: proxy)
-            }
             .onChange(of: documentManager.scraps.count) { _, _ in
                 scrollToLatest(using: proxy)
             }

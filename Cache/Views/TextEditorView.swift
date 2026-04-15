@@ -208,7 +208,8 @@ struct TextEditorView: UIViewRepresentable {
             guard let scrollView = findParentScrollView(from: textView) else {
                 // View not yet in hierarchy (lazy rendering) — retry once after materialisation
                 guard !retrying else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self, weak textView] in
+                    guard let textView else { return }
                     self?.scrollToRange(range, in: textView, retrying: true)
                 }
                 return
