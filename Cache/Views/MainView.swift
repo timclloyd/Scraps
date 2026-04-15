@@ -143,6 +143,13 @@ struct MainView: View {
             searchMatches = matches
             currentMatchIndex = 0
         }
+        .onChange(of: documentManager.focusedScrapID) { _, _ in
+            guard viewMode == .search else { return }
+            clearSearch()
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                viewMode = .archive
+            }
+        }
     }
 
     // MARK: - Navigation
