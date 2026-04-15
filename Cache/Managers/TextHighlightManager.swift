@@ -59,6 +59,13 @@ class TextHighlightManager: NSLayoutManager {
 
     var normalFont: UIFont?
 
+    var searchQuery: String = "" {
+        didSet { invalidateSearchHighlights() }
+    }
+    var activeSearchRange: NSRange? {
+        didSet { invalidateSearchHighlights() }
+    }
+
     private var isProcessing = false
     private let urlDetector: NSDataDetector? = {
         return try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
@@ -127,5 +134,52 @@ class TextHighlightManager: NSLayoutManager {
 
         textStorage.endEditing()
         isProcessing = false
+    }
+
+    private func invalidateSearchHighlights() {
+        guard let storage = textStorage, storage.length > 0 else { return }
+        let fullGlyphRange = glyphRange(forCharacterRange: NSRange(location: 0, length: storage.length), actualCharacterRange: nil)
+        invalidateDisplay(forGlyphRange: fullGlyphRange)
+    }
+
+    override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
+        super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
+        guard !searchQuery.isEmpty, let storage = textStorage, !textContainers.isEmpty else { return }
+
+        let container = textContainers[0]
+        let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+        let text = storage.string as NSString
+
+        let inactiveColour = Theme.searchHighlightColor
+        let activeColour = Theme.searchActiveHighlightColor
+
+        var searchRange = charRange
+        while searchRange.length > 0 {
+            let matchRange = text.range(of: searchQuery, options: .caseInsensitive, range: searchRange)
+            guard matchRange.location != NSNotFound else { break }
+
+            let isActive: Bool
+            if let active = activeSearchRange {
+                isActive = matchRange.location == active.location && matchRange.length == active.length
+            } else {
+                isActive = false
+            }
+
+            let colour = isActive ? activeColour : inactiveColour
+            let matchGlyphRange = glyphRange(forCharacterRange: matchRange, actualCharacterRange: nil)
+
+            enumerateEnclosingRects(
+                forGlyphRange: matchGlyphRange,
+                withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0),
+                in: container
+            ) { rect, _ in
+                let adjusted = rect.offsetBy(dx: origin.x, dy: origin.y).insetBy(dx: -1, dy: 0)
+                colour.setFill()
+                UIBezierPath(roundedRect: adjusted, cornerRadius: 2).fill()
+            }
+
+            let next = matchRange.upperBound
+            searchRange = NSRange(location: next, length: charRange.upperBound - next)
+        }
     }
 }

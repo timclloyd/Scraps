@@ -39,8 +39,8 @@ struct ToolbarView: View {
     private var searchButton: some View {
         Button(action: onToggleSearch) {
             HStack(spacing: 4) {
-                Image(systemName: viewMode == .search ? "text.magnifyingglass" : "magnifyingglass")
-                Text("SEARCH")
+                Image(systemName: viewMode == .search ? "checkmark" : "magnifyingglass")
+                Text(viewMode == .search ? "DONE" : "SEARCH")
             }
             .font(.custom(Theme.font, size: Theme.separatorFontSize))
             .fontWeight(.medium)

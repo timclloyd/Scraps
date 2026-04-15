@@ -10,8 +10,10 @@ struct ScrapCardView: View {
     let showsSeparator: Bool
     let autoFocus: Bool
     var topPadding: CGFloat = Theme.textSize
-    var cardBackground: Color = Color(.systemBackground)
+    var cardBackground: Color = .clear
     let editorFont: UIFont
+    var searchQuery: String = ""
+    var activeSearchRange: NSRange? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,7 +27,9 @@ struct ScrapCardView: View {
                 scrap: scrap,
                 document: scrap.document,
                 font: editorFont,
-                isInitialFocus: autoFocus
+                isInitialFocus: autoFocus,
+                searchQuery: searchQuery,
+                activeSearchRange: activeSearchRange
             )
             .padding(.horizontal, Theme.horizontalPadding - Theme.horizontalPaddingBackground)
             .padding(.bottom, Theme.separatorVerticalPadding - Theme.horizontalPaddingBackground)

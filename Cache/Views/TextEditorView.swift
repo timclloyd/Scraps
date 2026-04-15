@@ -22,6 +22,8 @@ struct TextEditorView: UIViewRepresentable {
     var isInitialFocus: Bool = false
     var scrapID: String?
     var onBecomeFocused: ((String) -> Void)?
+    var searchQuery: String = ""
+    var activeSearchRange: NSRange? = nil
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: EnhancedTextView, context: Context) -> CGSize? {
         // Tell SwiftUI to use the proposed width but let height grow based on content
@@ -71,11 +73,23 @@ struct TextEditorView: UIViewRepresentable {
 
         if let lm = uiView.textStorage.layoutManagers.first as? TextHighlightManager {
             lm.normalFont = font
+            lm.searchQuery = searchQuery
+            lm.activeSearchRange = activeSearchRange
         }
 
         // Update text if changed
         if uiView.text != text {
             uiView.text = text
+        }
+
+        // Scroll to active search match when it changes
+        if activeSearchRange != context.coordinator.lastActiveSearchRange {
+            context.coordinator.lastActiveSearchRange = activeSearchRange
+            if let range = activeSearchRange {
+                DispatchQueue.main.async {
+                    context.coordinator.scrollToRange(range, in: uiView)
+                }
+            }
         }
 
         // Reset so next isInitialFocus = true transition triggers becomeFirstResponder again
@@ -102,30 +116,41 @@ struct TextEditorView: UIViewRepresentable {
         var parent: TextEditorView
         var hasFocused = false
         weak var textView: UITextView?
-        private var keyboardDidShowObserver: NSObjectProtocol?
+        var lastActiveSearchRange: NSRange?
+        var keyboardHeight: CGFloat = 0
+        private var keyboardObservers: [NSObjectProtocol] = []
 
         init(_ parent: TextEditorView) {
             self.parent = parent
             super.init()
 
-            // Listen for keyboard appearing to adjust scroll position
-            keyboardDidShowObserver = NotificationCenter.default.addObserver(
+            let show = NotificationCenter.default.addObserver(
                 forName: UIResponder.keyboardDidShowNotification,
                 object: nil,
                 queue: .main
-            ) { [weak self] _ in
-                // After keyboard appears, adjust scroll to add padding
+            ) { [weak self] notification in
+                if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                    self?.keyboardHeight = frame.height
+                }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     guard let self = self, let textView = self.textView, textView.isFirstResponder else { return }
                     self.scrollToKeepCursorVisible(in: textView)
                 }
             }
+
+            let hide = NotificationCenter.default.addObserver(
+                forName: UIResponder.keyboardWillHideNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.keyboardHeight = 0
+            }
+
+            keyboardObservers = [show, hide]
         }
 
         deinit {
-            if let keyboardDidShowObserver {
-                NotificationCenter.default.removeObserver(keyboardDidShowObserver)
-            }
+            keyboardObservers.forEach { NotificationCenter.default.removeObserver($0) }
         }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -170,6 +195,18 @@ struct TextEditorView: UIViewRepresentable {
             let rectInScrollView = textView.convert(cursorRect, to: scrollView)
 
             // Scroll to make the padded rect visible
+            scrollView.scrollRectToVisible(rectInScrollView, animated: true)
+        }
+
+        func scrollToRange(_ range: NSRange, in textView: UITextView) {
+            let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            guard glyphRange.location != NSNotFound else { return }
+            var rect = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
+            rect = rect.insetBy(dx: -8, dy: 0)
+            rect.origin.y -= Theme.topFadeHeight
+            rect.size.height += Theme.topFadeHeight + Theme.cursorScrollPadding + keyboardHeight
+            guard let scrollView = findParentScrollView(from: textView) else { return }
+            let rectInScrollView = textView.convert(rect, to: scrollView)
             scrollView.scrollRectToVisible(rectInScrollView, animated: true)
         }
 
