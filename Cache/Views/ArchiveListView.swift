@@ -30,11 +30,11 @@ struct ArchiveListView: View {
                         )
                     }
                 }
-                .padding(.top, Theme.verticalPadding)
                 .padding(.bottom, Theme.textSize)
                 Color.clear.frame(height: 0).id("archiveListBottom")
             }
             .background(Theme.archiveBackground)
+            .scrollIndicators(.visible)
             .scrollDismissesKeyboard(.never)
             .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
             .animation(.easeOut(duration: 0.25), value: keyboardHeight)
