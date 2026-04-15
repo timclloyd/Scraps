@@ -10,7 +10,7 @@ struct ScrapCardView: View {
     let showsSeparator: Bool
     let autoFocus: Bool
     var topPadding: CGFloat = Theme.textSize
-    var cardBackground: Color = Color(.systemBackground)
+    var cardBackground: Color = .clear
     let editorFont: UIFont
     var searchQuery: String = ""
     var activeSearchRange: NSRange? = nil

@@ -59,7 +59,7 @@ struct MainView: View {
     }
 
     private var keyboardBackgroundColor: Color {
-        viewMode == .latest ? Color(uiColor: .systemBackground) : Theme.archiveBackground
+        viewMode == .latest ? Theme.latestPanelBackground : Theme.archiveBackground
     }
 
     private var activeMatch: (scrapID: String, range: NSRange)? {

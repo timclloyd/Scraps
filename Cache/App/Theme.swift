@@ -32,19 +32,18 @@ enum Theme {
     
     //MARK: Colours
 
-    static let archiveBackground = Color(.systemGray6)
+    static let archiveBackground = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark ? .systemBackground : .systemGray6
+    })
+
+    static let latestPanelBackground = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark ? .systemGray6 : .systemBackground
+    })
     static let strikethroughHapticStyle = UIImpactFeedbackGenerator.FeedbackStyle.medium
 
     static let linkColor = UIColor.systemGray3
-
-    static let separatorColor = UIColor { traitCollection in
-        switch traitCollection.userInterfaceStyle {
-        case .dark:
-            return UIColor.systemGray5
-        default:
-            return UIColor.systemGray3
-        }
-    }
+    static let panelBorderColor = UIColor.systemGray5
+    static let separatorColor = UIColor.systemGray3
     
     static func highlightColor(for traitCollection: UITraitCollection) -> UIColor {
         UIColor { traitCollection in
@@ -70,18 +69,18 @@ enum Theme {
     static let searchHighlightColor = UIColor { traitCollection in
         switch traitCollection.userInterfaceStyle {
         case .dark:
-            return UIColor.systemPurple.withAlphaComponent(0.25)
+            return UIColor(hue: 23/360, saturation: 0.55, brightness: 0.50, alpha: 1.0)
         default:
-            return UIColor.systemPurple.withAlphaComponent(0.25)
+            return UIColor(hue: 24/360, saturation: 0.30, brightness: 1.0, alpha: 1.0)
         }
     }
 
     static let searchActiveHighlightColor = UIColor { traitCollection in
         switch traitCollection.userInterfaceStyle {
         case .dark:
-            return UIColor.systemPurple.withAlphaComponent(0.55)
+            return UIColor(hue: 23/360, saturation: 0.70, brightness: 0.72, alpha: 1.0)
         default:
-            return UIColor.systemPurple.withAlphaComponent(0.55)
+            return UIColor(hue: 24/360, saturation: 0.58, brightness: 1.0, alpha: 1.0)
         }
     }
 

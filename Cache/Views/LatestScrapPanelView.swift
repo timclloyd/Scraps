@@ -39,11 +39,11 @@ struct LatestScrapPanelView: View {
             .scrollIndicators(.hidden)
             .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
             .animation(.easeOut(duration: 0.25), value: keyboardHeight)
-            .background(Color(uiColor: .systemBackground))
+            .background(Theme.latestPanelBackground)
             .overlay(alignment: .top) {
                 SmoothLinearGradient(
-                    from: Color(uiColor: .systemBackground).opacity(0.9),
-                    to: Color(uiColor: .systemBackground).opacity(0),
+                    from: Theme.latestPanelBackground.opacity(0.9),
+                    to: Theme.latestPanelBackground.opacity(0),
                     startPoint: .top, endPoint: .bottom, curve: .easeOut
                 )
                 .frame(height: Theme.topFadeHeight)
@@ -53,7 +53,7 @@ struct LatestScrapPanelView: View {
             .ignoresSafeArea(edges: .bottom)
         }
         .overlay(alignment: .top) {
-            shape.strokeBorder(Color(Theme.separatorColor), lineWidth: 1)
+            shape.strokeBorder(Color(Theme.panelBorderColor), lineWidth: 1)
         }
     }
 }
