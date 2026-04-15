@@ -101,8 +101,8 @@ struct TextEditorView: UIViewRepresentable {
         // No delay needed - proper sequencing ensures scroll completes before focus
         if isInitialFocus && !context.coordinator.hasFocused && !uiView.isFirstResponder {
             context.coordinator.hasFocused = true
-            // Double-check view is still in hierarchy before focusing
-            if uiView.superview != nil {
+            DispatchQueue.main.async {
+                guard uiView.superview != nil else { return }
                 uiView.becomeFirstResponder()
             }
         }
