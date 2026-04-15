@@ -47,7 +47,7 @@ struct SearchBarView: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
-                    .disabled(matchCount == 0)
+                    .disabled(matchCount <= 1)
                     .buttonStyle(.plain)
 
                     Button(action: onNext) {
@@ -56,13 +56,13 @@ struct SearchBarView: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
-                    .disabled(matchCount == 0)
+                    .disabled(matchCount <= 1)
                     .buttonStyle(.plain)
                 }
             }
         }
+        .frame(height: 44)
         .padding(.horizontal, Theme.horizontalPadding)
-        .padding(.vertical, 10)
         .background(Theme.archiveBackground)
         .onAppear {
             isFocused = true
