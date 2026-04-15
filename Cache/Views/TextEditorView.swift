@@ -117,30 +117,40 @@ struct TextEditorView: UIViewRepresentable {
         var hasFocused = false
         weak var textView: UITextView?
         var lastActiveSearchRange: NSRange?
-        private var keyboardDidShowObserver: NSObjectProtocol?
+        var keyboardHeight: CGFloat = 0
+        private var keyboardObservers: [NSObjectProtocol] = []
 
         init(_ parent: TextEditorView) {
             self.parent = parent
             super.init()
 
-            // Listen for keyboard appearing to adjust scroll position
-            keyboardDidShowObserver = NotificationCenter.default.addObserver(
+            let show = NotificationCenter.default.addObserver(
                 forName: UIResponder.keyboardDidShowNotification,
                 object: nil,
                 queue: .main
-            ) { [weak self] _ in
-                // After keyboard appears, adjust scroll to add padding
+            ) { [weak self] notification in
+                if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                    self?.keyboardHeight = frame.height
+                }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     guard let self = self, let textView = self.textView, textView.isFirstResponder else { return }
                     self.scrollToKeepCursorVisible(in: textView)
                 }
             }
+
+            let hide = NotificationCenter.default.addObserver(
+                forName: UIResponder.keyboardWillHideNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.keyboardHeight = 0
+            }
+
+            keyboardObservers = [show, hide]
         }
 
         deinit {
-            if let keyboardDidShowObserver {
-                NotificationCenter.default.removeObserver(keyboardDidShowObserver)
-            }
+            keyboardObservers.forEach { NotificationCenter.default.removeObserver($0) }
         }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -192,7 +202,9 @@ struct TextEditorView: UIViewRepresentable {
             let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
             guard glyphRange.location != NSNotFound else { return }
             var rect = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
-            rect = rect.insetBy(dx: -8, dy: -Theme.cursorScrollPadding)
+            rect = rect.insetBy(dx: -8, dy: 0)
+            rect.origin.y -= Theme.topFadeHeight
+            rect.size.height += Theme.topFadeHeight + Theme.cursorScrollPadding + keyboardHeight
             guard let scrollView = findParentScrollView(from: textView) else { return }
             let rectInScrollView = textView.convert(rect, to: scrollView)
             scrollView.scrollRectToVisible(rectInScrollView, animated: true)

@@ -53,14 +53,6 @@ struct ArchiveListView: View {
             .onChange(of: documentManager.scraps.count) { _, _ in
                 scrollToLatest(using: proxy)
             }
-            .onChange(of: activeMatchScrapID) { _, id in
-                guard let id else { return }
-                DispatchQueue.main.async {
-                    withAnimation {
-                        proxy.scrollTo(id, anchor: .center)
-                    }
-                }
-            }
         }
     }
 
