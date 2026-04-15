@@ -25,8 +25,8 @@ class DocumentManager: ObservableObject {
     init() {
         // Perform async initialization in a task
         Task {
-            // Step 1: Load existing scraps
-            await loadScraps()
+            // Step 1: Load existing scraps, prioritising the latest so the UI is interactive ASAP
+            await loadScrapsInitial()
 
             // Step 2: Check if we need to create a new scrap
             if shouldCreateNewScrap() {
@@ -56,6 +56,90 @@ class DocumentManager: ObservableObject {
             // Step 3: Mark initialization as complete
             isInitialLoad = false
             isReady = true
+        }
+    }
+
+    // Two-phase load used only at init: opens the latest scrap first so the UI becomes
+    // interactive immediately, then loads older scraps in the background.
+    private func loadScrapsInitial() async {
+        guard let documentsURL = documentsDirectoryURL else {
+            print("Error: Could not get iCloud documents directory URL")
+            return
+        }
+
+        if !FileManager.default.fileExists(atPath: documentsURL.path) {
+            do {
+                try FileManager.default.createDirectory(at: documentsURL, withIntermediateDirectories: true)
+            } catch {
+                print("Error creating Documents directory: \(error)")
+                return
+            }
+        }
+
+        do {
+            let contents = try FileManager.default.contentsOfDirectory(
+                at: documentsURL,
+                includingPropertiesForKeys: nil
+            )
+
+            let scrapFiles = try normalizeLegacyScrapFiles(in: contents)
+            guard !scrapFiles.isEmpty else { return }
+
+            // Filenames encode the timestamp, so descending lexicographic order = latest first
+            let sortedFiles = scrapFiles.sorted { $0.lastPathComponent > $1.lastPathComponent }
+
+            // Phase 1: open the latest scrap immediately so the panel and keyboard appear
+            var latestScrap: Scrap? = nil
+            if let latestFile = sortedFiles.first {
+                let filename = latestFile.lastPathComponent
+                if let timestamp = Scrap.parseTimestamp(from: filename) {
+                    let document = TextDocument(fileURL: latestFile)
+                    let scrap = Scrap(timestamp: timestamp, filename: filename, document: document)
+                    let success = await withCheckedContinuation { continuation in
+                        document.open { continuation.resume(returning: $0) }
+                    }
+                    if success {
+                        attachObserver(to: document)
+                        latestScrap = scrap
+                        scraps = [scrap]
+                        focusLatestScrap()
+                    } else {
+                        print("Error: Failed to open latest scrap: \(filename)")
+                    }
+                }
+            }
+
+            // Phase 2: open remaining scraps concurrently in the background
+            let otherFiles = Array(sortedFiles.dropFirst())
+            guard !otherFiles.isEmpty else { return }
+
+            let otherScraps = await withTaskGroup(of: (Scrap, Bool).self, returning: [Scrap].self) { group in
+                for fileURL in otherFiles {
+                    let filename = fileURL.lastPathComponent
+                    guard let timestamp = Scrap.parseTimestamp(from: filename) else { continue }
+                    let document = TextDocument(fileURL: fileURL)
+                    let scrap = Scrap(timestamp: timestamp, filename: filename, document: document)
+                    group.addTask {
+                        let success = await withCheckedContinuation { continuation in
+                            document.open { continuation.resume(returning: $0) }
+                        }
+                        return (scrap, success)
+                    }
+                }
+                var results: [Scrap] = []
+                for await (scrap, success) in group {
+                    if success { results.append(scrap) }
+                    else { print("Error: Failed to open scrap: \(scrap.filename)") }
+                }
+                return results
+            }
+
+            for scrap in otherScraps { attachObserver(to: scrap.document) }
+            // scraps may already contain latestScrap from Phase 1; merge and re-sort
+            scraps = (scraps + otherScraps).sorted { $0.timestamp < $1.timestamp }
+
+        } catch {
+            print("Error enumerating scrap files: \(error)")
         }
     }
 

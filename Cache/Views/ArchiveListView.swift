@@ -17,7 +17,7 @@ struct ArchiveListView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(documentManager.scraps) { scrap in
                         ScrapCardView(
                             scrap: scrap,
@@ -32,12 +32,14 @@ struct ArchiveListView: View {
                 }
                 .padding(.top, Theme.verticalPadding)
                 .padding(.bottom, Theme.textSize)
+                Color.clear.frame(height: 0).id("archiveListBottom")
             }
             .background(Theme.archiveBackground)
             .scrollDismissesKeyboard(.never)
             .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
             .animation(.easeOut(duration: 0.25), value: keyboardHeight)
             .ignoresSafeArea(edges: .bottom)
+            .defaultScrollAnchor(.bottom)
             .overlay(alignment: .top) {
                 SmoothLinearGradient(
                     from: Theme.archiveBackground,
@@ -53,13 +55,18 @@ struct ArchiveListView: View {
             .onChange(of: documentManager.scraps.count) { _, _ in
                 scrollToLatest(using: proxy)
             }
+            .onChange(of: activeMatchScrapID) { _, id in
+                guard let id else { return }
+                withAnimation(.none) {
+                    proxy.scrollTo(id)
+                }
+            }
         }
     }
 
     private func scrollToLatest(using proxy: ScrollViewProxy) {
-        guard let latest = documentManager.scraps.last else { return }
         DispatchQueue.main.async {
-            proxy.scrollTo(latest.id, anchor: .bottom)
+            proxy.scrollTo("archiveListBottom", anchor: .bottom)
         }
     }
 }

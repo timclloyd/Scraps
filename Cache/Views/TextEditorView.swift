@@ -198,14 +198,21 @@ struct TextEditorView: UIViewRepresentable {
             scrollView.scrollRectToVisible(rectInScrollView, animated: true)
         }
 
-        func scrollToRange(_ range: NSRange, in textView: UITextView) {
+        func scrollToRange(_ range: NSRange, in textView: UITextView, retrying: Bool = false) {
             let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
             guard glyphRange.location != NSNotFound else { return }
             var rect = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
             rect = rect.insetBy(dx: -8, dy: 0)
             rect.origin.y -= Theme.topFadeHeight
             rect.size.height += Theme.topFadeHeight + Theme.cursorScrollPadding + keyboardHeight
-            guard let scrollView = findParentScrollView(from: textView) else { return }
+            guard let scrollView = findParentScrollView(from: textView) else {
+                // View not yet in hierarchy (lazy rendering) — retry once after materialisation
+                guard !retrying else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    self?.scrollToRange(range, in: textView, retrying: true)
+                }
+                return
+            }
             let rectInScrollView = textView.convert(rect, to: scrollView)
             scrollView.scrollRectToVisible(rectInScrollView, animated: true)
         }
