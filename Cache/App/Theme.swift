@@ -9,6 +9,10 @@ import SwiftUI
 
 enum Theme {
     
+    //MARK: Animation
+
+    static let navigationAnimation = Animation.spring(response: 0.2, dampingFraction: 1.0)
+
     //MARK: Fonts
     
     static let textSize: CGFloat = 16

@@ -81,7 +81,7 @@ struct MainView: View {
 
                     LatestScrapPanelView(keyboardHeight: keyboardTracker.height, viewMode: viewMode, editorFont: editorFont)
                         .offset(y: viewMode == .latest ? 0 : geometry.size.height)
-                        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: viewMode)
+                        .animation(Theme.navigationAnimation, value: viewMode)
                         .allowsHitTesting(viewMode == .latest)
 
                     // Solid background behind keyboard to prevent text showing through
@@ -108,7 +108,7 @@ struct MainView: View {
                     .allowsHitTesting(false)
                 }
                 .padding(.top, viewMode == .search ? 44 : 0)
-                .animation(.spring(response: 0.28, dampingFraction: 0.82), value: viewMode == .search)
+                .animation(Theme.navigationAnimation, value: viewMode == .search)
                 .background(Theme.archiveBackground)
 
                 // Search bar — sits at the ZStack's safe-area top, i.e. directly below the toolbar
@@ -146,7 +146,7 @@ struct MainView: View {
         .onChange(of: documentManager.focusedScrapID) { _, _ in
             guard viewMode == .search else { return }
             clearSearch()
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+            withAnimation(Theme.navigationAnimation) {
                 viewMode = .archive
             }
         }
@@ -171,7 +171,7 @@ struct MainView: View {
         case .search:
             clearSearch()
             if priorMode == .archive {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                withAnimation(Theme.navigationAnimation) {
                     viewMode = .archive
                 }
             } else {
@@ -181,7 +181,7 @@ struct MainView: View {
             priorMode = viewMode
             dismissKeyboard()
             if viewMode == .latest { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+            withAnimation(Theme.navigationAnimation) {
                 viewMode = .search
             }
         }
@@ -190,14 +190,14 @@ struct MainView: View {
     private func transitionToArchive() {
         dismissKeyboard()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+        withAnimation(Theme.navigationAnimation) {
             viewMode = .archive
         }
     }
 
     private func transitionToLatest() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+        withAnimation(Theme.navigationAnimation) {
             viewMode = .latest
         } completion: {
             documentManager.focusLatestScrap()
