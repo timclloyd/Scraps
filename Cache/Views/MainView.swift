@@ -107,7 +107,7 @@ struct MainView: View {
                     .ignoresSafeArea(edges: .bottom)
                     .allowsHitTesting(false)
                 }
-                .padding(.top, viewMode == .search ? Theme.horizontalPaddingBackground + 44 : Theme.horizontalPaddingBackground)
+                .padding(.top, viewMode == .search ? 44 : 0)
                 .animation(.spring(response: 0.28, dampingFraction: 0.82), value: viewMode == .search)
                 .background(Theme.archiveBackground)
 
