@@ -132,8 +132,10 @@ class DocumentManager: ObservableObject {
             }
 
             for scrap in otherScraps { attachObserver(to: scrap.document) }
-            // scraps may already contain latestScrap from Phase 1; merge and re-sort
-            scraps = (scraps + otherScraps).sorted { $0.timestamp < $1.timestamp }
+            // Phase 2 items are always older, so index 0 is correct. Prepending rather than
+            // replacing avoids triggering a defaultScrollAnchor re-anchor animation if Phase 2
+            // completes while a panel transition is in-flight.
+            scraps.insert(contentsOf: otherScraps.sorted { $0.timestamp < $1.timestamp }, at: 0)
 
         } catch {
             print("Error enumerating scrap files: \(error)")
@@ -283,15 +285,28 @@ class DocumentManager: ObservableObject {
     }
 
     private func replaceLoadedScraps(with loadedScraps: [Scrap]) async {
-        let previousScraps = scraps
+        let currentIDs = Set(scraps.map { $0.id })
+        let loadedIDs = Set(loadedScraps.map { $0.id })
 
-        for scrap in loadedScraps {
-            attachObserver(to: scrap.document)
+        let addedScraps = loadedScraps
+            .filter { !currentIDs.contains($0.id) }
+            .sorted { $0.timestamp < $1.timestamp }
+        let removedScraps = scraps.filter { !loadedIDs.contains($0.id) }
+        // Freshly opened documents for scraps that already exist — close them after the diff.
+        let duplicateScraps = loadedScraps.filter { currentIDs.contains($0.id) }
+
+        for scrap in addedScraps { attachObserver(to: scrap.document) }
+
+        scraps.removeAll { !loadedIDs.contains($0.id) }
+        for newScrap in addedScraps {
+            if let idx = scraps.firstIndex(where: { $0.timestamp > newScrap.timestamp }) {
+                scraps.insert(newScrap, at: idx)
+            } else {
+                scraps.append(newScrap)
+            }
         }
 
-        scraps = loadedScraps.sorted { $0.timestamp < $1.timestamp }
-
-        await cleanupDocuments(for: previousScraps)
+        await cleanupDocuments(for: removedScraps + duplicateScraps)
     }
 
     private func cleanupDocuments(for scraps: [Scrap]) async {

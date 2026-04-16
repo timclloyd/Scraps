@@ -62,7 +62,7 @@ struct ArchiveListView: View {
     }
 
     private func scrollToLatest(using proxy: ScrollViewProxy) {
-        DispatchQueue.main.async {
+        withAnimation(.none) {
             proxy.scrollTo("archiveListBottom", anchor: .bottom)
         }
     }
