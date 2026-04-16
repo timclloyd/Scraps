@@ -132,8 +132,10 @@ class DocumentManager: ObservableObject {
             }
 
             for scrap in otherScraps { attachObserver(to: scrap.document) }
-            // scraps may already contain latestScrap from Phase 1; merge and re-sort
-            scraps = (scraps + otherScraps).sorted { $0.timestamp < $1.timestamp }
+            // Phase 2 items are always older than the Phase 1 item, so prepend rather than
+            // replacing the whole array. This keeps the latest scrap's view alive in the
+            // LazyVStack and avoids triggering a defaultScrollAnchor re-anchor animation.
+            scraps.insert(contentsOf: otherScraps.sorted { $0.timestamp < $1.timestamp }, at: 0)
 
         } catch {
             print("Error enumerating scrap files: \(error)")
