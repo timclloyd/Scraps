@@ -119,7 +119,8 @@ struct MainView: View {
                             matchCount: searchMatches.count,
                             currentMatchIndex: currentMatchIndex,
                             onPrev: prevMatch,
-                            onNext: nextMatch
+                            onNext: nextMatch,
+                            onDismiss: toggleSearch
                         )
                         Spacer()
                     }

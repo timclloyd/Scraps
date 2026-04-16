@@ -11,6 +11,7 @@ struct SearchBarView: View {
     let currentMatchIndex: Int
     let onPrev: () -> Void
     let onNext: () -> Void
+    let onDismiss: () -> Void
 
     @FocusState private var isFocused: Bool
 
@@ -31,7 +32,8 @@ struct SearchBarView: View {
                 .focused($isFocused)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-                .submitLabel(.search)
+                .submitLabel(.done)
+                .onSubmit(onDismiss)
 
             if !query.isEmpty {
                 Text(counterText)
