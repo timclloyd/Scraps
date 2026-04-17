@@ -34,6 +34,15 @@ class TextHighlightManager: NSLayoutManager {
         try? NSRegularExpression(pattern: "~~.+?~~")
     }()
 
+    // Dynamic UIColor so UIKit resolves against the real text-view trait environment
+    // at draw time. Previously we called Theme.highlightColor(for: UITraitCollection.current)
+    // inside processEditing, but .current is only guaranteed correct inside specific
+    // UIKit callbacks — this pattern is robust across any invocation context and avoids
+    // a per-keystroke resolution call.
+    private static let keywordHighlightColor: UIColor = UIColor { traits in
+        Theme.highlightColor(for: traits)
+    }
+
     var normalFont: UIFont?
 
     var searchQuery: String = "" {
@@ -76,16 +85,16 @@ class TextHighlightManager: NSLayoutManager {
         textStorage.removeAttribute(.foregroundColor, range: processRange)
         textStorage.addAttribute(.foregroundColor, value: UIColor.label, range: processRange)
 
-        // Resolve the highlight colour dynamically so it tracks the current trait collection
-        // rather than being frozen at the moment the TextHighlightManager instance was created.
-        let highlightColor = Theme.highlightColor(for: UITraitCollection.current)
+        // storageLength is invariant for the duration of this beginEditing/endEditing
+        // block — addAttribute does not change length — so caching it is safe.
         let storageLength = textStorage.length
 
-        // Apply keyword highlighting
+        // Apply keyword highlighting. keywordHighlightColor is a dynamic UIColor;
+        // UIKit resolves it against the text view's real trait collection at draw time.
         for regex in Self.keywordRegexes {
             regex.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
                 guard let range = match?.range, range.upperBound <= storageLength else { return }
-                textStorage.addAttribute(.backgroundColor, value: highlightColor, range: range)
+                textStorage.addAttribute(.backgroundColor, value: Self.keywordHighlightColor, range: range)
             }
         }
 
