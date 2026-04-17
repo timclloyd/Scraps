@@ -74,6 +74,7 @@ struct MainView: View {
                     ArchiveListView(
                         keyboardHeight: keyboardTracker.height,
                         editorFont: editorFont,
+                        viewMode: viewMode,
                         searchQuery: searchQuery,
                         activeMatchScrapID: activeMatch?.scrapID,
                         activeMatchRange: activeMatch?.range
@@ -214,7 +215,7 @@ struct MainView: View {
     private func computeMatches(for query: String) -> [(scrapID: String, range: NSRange)] {
         guard !query.isEmpty else { return [] }
         var matches: [(String, NSRange)] = []
-        for scrap in documentManager.scraps {
+        for scrap in documentManager.scraps.reversed() {
             let text = scrap.document.text as NSString
             var searchRange = NSRange(location: 0, length: text.length)
             while searchRange.length > 0 {

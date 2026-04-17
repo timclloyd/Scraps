@@ -10,6 +10,7 @@ struct ArchiveListView: View {
     @EnvironmentObject var documentManager: DocumentManager
     let keyboardHeight: CGFloat
     let editorFont: UIFont
+    var viewMode: ViewMode = .archive
     var searchQuery: String = ""
     var activeMatchScrapID: String? = nil
     var activeMatchRange: NSRange? = nil
@@ -18,10 +19,10 @@ struct ArchiveListView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(documentManager.scraps) { scrap in
+                    ForEach(Array(documentManager.scraps.reversed())) { scrap in
                         ScrapCardView(
                             scrap: scrap,
-                            showsSeparator: scrap.id != documentManager.scraps.first?.id,
+                            showsSeparator: scrap.id != documentManager.scraps.last?.id,
                             autoFocus: false,
                             cardBackground: .clear,
                             editorFont: editorFont,
@@ -30,16 +31,14 @@ struct ArchiveListView: View {
                         )
                     }
                 }
+                .padding(.top, 2)
                 .padding(.bottom, Theme.textSize)
-                Color.clear.frame(height: 0).id("archiveListBottom")
             }
             .background(Theme.archiveBackground)
             .scrollIndicators(.visible)
             .scrollDismissesKeyboard(.never)
             .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
-            .animation(.easeOut(duration: 0.25), value: keyboardHeight)
             .ignoresSafeArea(edges: .bottom)
-            .defaultScrollAnchor(.bottom)
             .overlay(alignment: .top) {
                 SmoothLinearGradient(
                     from: Theme.archiveBackground,
@@ -49,21 +48,12 @@ struct ArchiveListView: View {
                 .frame(height: Theme.topFadeHeight)
                 .allowsHitTesting(false)
             }
-            .onChange(of: documentManager.scraps.count) { _, _ in
-                scrollToLatest(using: proxy)
-            }
             .onChange(of: activeMatchScrapID) { _, id in
                 guard let id else { return }
                 withAnimation(.none) {
                     proxy.scrollTo(id)
                 }
             }
-        }
-    }
-
-    private func scrollToLatest(using proxy: ScrollViewProxy) {
-        withAnimation(.none) {
-            proxy.scrollTo("archiveListBottom", anchor: .bottom)
         }
     }
 }
