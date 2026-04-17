@@ -30,7 +30,11 @@ class DocumentManager: ObservableObject {
 
             // Step 2: Check if we need to create a new scrap
             if shouldCreateNewScrap() {
-                // Long absence - check if last scrap is empty and replace if needed
+                // Long absence — check if last scrap is empty and replace if needed.
+                // Load-bearing invariant: shouldCreateNewScrap() being true implies the
+                // latest scrap's timestamp is from a prior calendar day, so it cannot
+                // be one we just created this session. Without that, a freshly-created
+                // empty scrap (.normal + empty) would match isSafelyEmpty and be deleted.
                 if let lastScrap = scraps.last, isSafelyEmpty(lastScrap) {
                     // Delete the old empty scrap before creating new one
                     await deleteScrap(lastScrap)
@@ -408,10 +412,16 @@ class DocumentManager: ObservableObject {
         }
     }
 
-    // A scrap is safely empty only if its text is blank AND the underlying UIDocument
-    // is in a normal, editable state. While iCloud is still downloading or merging content,
-    // text can appear as "" even though a non-empty version is about to arrive — deleting
-    // in that window would destroy the incoming content.
+    // A scrap is safely empty only if its text is blank AND the document is not
+    // currently transferring, locked, or in conflict. While iCloud is still
+    // downloading or merging content, text can appear as "" even though a non-empty
+    // version is about to arrive — deleting in that window would destroy the
+    // incoming content. .savingError is deliberately not checked: a save failure
+    // shouldn't block cleanup of an otherwise-empty scrap.
+    //
+    // Residual race: a download can still begin between this check and deleteScrap
+    // completing. Tolerable because deleteScrap is file-coordinated and iCloud will
+    // re-materialise server-held files via the conflict-resolution path if needed.
     private func isSafelyEmpty(_ scrap: Scrap) -> Bool {
         let state = scrap.document.documentState
         guard !state.contains(.progressAvailable),
@@ -432,8 +442,11 @@ class DocumentManager: ObservableObject {
             return newScrap
         }
 
-        let trimmedText = latestScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedText.isEmpty == false else {
+        // If the latest scrap is safely empty, reuse it rather than create another.
+        // Using isSafelyEmpty here (not a raw text-only check) avoids handing the
+        // user an apparently-blank scrap that is actually mid-download — content
+        // would pop in unexpectedly moments later.
+        guard !isSafelyEmpty(latestScrap) else {
             focus(on: latestScrap)
             return nil
         }
