@@ -9,6 +9,11 @@ class TextDocument: UIDocument, ObservableObject, @unchecked Sendable {
             objectWillChange.send()
         }
         didSet {
+            // Keeps the nonisolated snapshot in lockstep with the main-actor text
+            // property. contents(forType:) reads the snapshot without hopping actors,
+            // so any keystroke (via updateText) must land in the snapshot before the
+            // next autosave runs. Do not elide this — it is not redundant with the
+            // load() path's own setSnapshot call.
             setSnapshot(text)
         }
     }
@@ -49,8 +54,18 @@ class TextDocument: UIDocument, ObservableObject, @unchecked Sendable {
         }
 
         setSnapshot(loadedText)
-        Task { @MainActor in
-            self.text = loadedText
+        // If load happens to run on the main thread (some UIDocument open paths do),
+        // apply the UI-visible update synchronously so a user keystroke that happens
+        // immediately after open cannot be clobbered by a deferred Task. assumeIsolated
+        // is safe here — it asserts, it doesn't block like main.sync.
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                self.text = loadedText
+            }
+        } else {
+            Task { @MainActor in
+                self.text = loadedText
+            }
         }
     }
 
