@@ -61,6 +61,8 @@ class DocumentManager: ObservableObject {
 
     // Returns sorted scrap file URLs (oldest first), creating the Documents directory if needed.
     // Returns nil on error, empty array if no scraps exist yet.
+    // All file ops on the iCloud container go through NSFileCoordinator so the iCloud
+    // daemon sees a consistent view and so we don't race with in-flight syncs from other devices.
     private func enumeratedScrapFiles() throws -> [URL]? {
         guard let documentsURL = documentsDirectoryURL else {
             print("Error: Could not get iCloud documents directory URL")
@@ -68,14 +70,65 @@ class DocumentManager: ObservableObject {
         }
 
         if !FileManager.default.fileExists(atPath: documentsURL.path) {
-            try FileManager.default.createDirectory(at: documentsURL, withIntermediateDirectories: true)
+            try coordinateWrite(at: documentsURL, options: .forReplacing) { url in
+                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            }
         }
 
-        let contents = try FileManager.default.contentsOfDirectory(
-            at: documentsURL,
-            includingPropertiesForKeys: nil
-        )
+        var contents: [URL] = []
+        try coordinateRead(at: documentsURL, options: []) { url in
+            contents = try FileManager.default.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: nil
+            )
+        }
         return try normalizeLegacyScrapFiles(in: contents)
+    }
+
+    private func coordinateRead(at url: URL,
+                                options: NSFileCoordinator.ReadingOptions,
+                                _ body: (URL) throws -> Void) throws {
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordError: NSError?
+        var thrown: Error?
+        coordinator.coordinate(readingItemAt: url, options: options, error: &coordError) { coordinatedURL in
+            do { try body(coordinatedURL) } catch { thrown = error }
+        }
+        if let coordError { throw coordError }
+        if let thrown { throw thrown }
+    }
+
+    private func coordinateWrite(at url: URL,
+                                 options: NSFileCoordinator.WritingOptions,
+                                 _ body: (URL) throws -> Void) throws {
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordError: NSError?
+        var thrown: Error?
+        coordinator.coordinate(writingItemAt: url, options: options, error: &coordError) { coordinatedURL in
+            do { try body(coordinatedURL) } catch { thrown = error }
+        }
+        if let coordError { throw coordError }
+        if let thrown { throw thrown }
+    }
+
+    private func coordinateMove(from source: URL, to destination: URL) throws {
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordError: NSError?
+        var thrown: Error?
+        coordinator.coordinate(
+            writingItemAt: source, options: .forMoving,
+            writingItemAt: destination, options: .forReplacing,
+            error: &coordError
+        ) { src, dst in
+            do {
+                try FileManager.default.moveItem(at: src, to: dst)
+                coordinator.item(at: src, didMoveTo: dst)
+            } catch {
+                thrown = error
+            }
+        }
+        if let coordError { throw coordError }
+        if let thrown { throw thrown }
     }
 
     // Two-phase load used only at init: opens the latest scrap first so the UI becomes
@@ -274,7 +327,9 @@ class DocumentManager: ObservableObject {
 
         if success {
             do {
-                try FileManager.default.removeItem(at: scrap.document.fileURL)
+                try coordinateWrite(at: scrap.document.fileURL, options: .forDeleting) { url in
+                    try FileManager.default.removeItem(at: url)
+                }
 
                 // Remove from array
                 self.scraps.removeAll { $0.id == scrap.id }
@@ -378,7 +433,7 @@ class DocumentManager: ObservableObject {
             }
 
             do {
-                try FileManager.default.moveItem(at: fileURL, to: normalizedURL)
+                try coordinateMove(from: fileURL, to: normalizedURL)
                 normalizedFiles.append(normalizedURL)
             } catch {
                 print("Warning: Failed to normalize legacy scrap filename \(fileURL.lastPathComponent): \(error)")
