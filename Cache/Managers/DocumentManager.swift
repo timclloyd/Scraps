@@ -255,10 +255,30 @@ class DocumentManager: ObservableObject {
         }
     }
 
-    func saveAllDocuments() {
-        // Save all scraps (called when app backgrounds)
+    func saveAllDocuments(completion: (@MainActor @Sendable () -> Void)? = nil) {
+        // Save all scraps (called when app backgrounds). Takes a completion so the
+        // caller can hold a UIBackgroundTask open until every async UIDocument.save
+        // has actually written to disk — without this, the process can exit on
+        // Cmd+Q before the last keystroke is persisted.
+        guard !scraps.isEmpty else {
+            completion?()
+            return
+        }
+
+        let group = DispatchGroup()
         for scrap in scraps {
-            saveDocument(scrap)
+            group.enter()
+            scrap.document.save(to: scrap.document.fileURL, for: .forOverwriting) { success in
+                if !success {
+                    print("Error: Failed to save scrap: \(scrap.filename)")
+                }
+                group.leave()
+            }
+        }
+        group.notify(queue: .main) {
+            MainActor.assumeIsolated {
+                completion?()
+            }
         }
     }
 
