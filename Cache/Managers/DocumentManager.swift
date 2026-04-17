@@ -31,12 +31,9 @@ class DocumentManager: ObservableObject {
             // Step 2: Check if we need to create a new scrap
             if shouldCreateNewScrap() {
                 // Long absence - check if last scrap is empty and replace if needed
-                if let lastScrap = scraps.last {
-                    let trimmedText = lastScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmedText.isEmpty {
-                        // Delete the old empty scrap before creating new one
-                        await deleteScrap(lastScrap)
-                    }
+                if let lastScrap = scraps.last, isSafelyEmpty(lastScrap) {
+                    // Delete the old empty scrap before creating new one
+                    await deleteScrap(lastScrap)
                 }
 
                 // Create new scrap and wait for it to complete
@@ -401,17 +398,28 @@ class DocumentManager: ObservableObject {
                 return
             }
 
-            if let lastScrap = scraps.last {
-                let trimmedText = lastScrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmedText.isEmpty {
-                    await deleteScrap(lastScrap)
-                }
+            if let lastScrap = scraps.last, isSafelyEmpty(lastScrap) {
+                await deleteScrap(lastScrap)
             }
 
             if let newScrap = await createNewScrap() {
                 focus(on: newScrap)
             }
         }
+    }
+
+    // A scrap is safely empty only if its text is blank AND the underlying UIDocument
+    // is in a normal, editable state. While iCloud is still downloading or merging content,
+    // text can appear as "" even though a non-empty version is about to arrive — deleting
+    // in that window would destroy the incoming content.
+    private func isSafelyEmpty(_ scrap: Scrap) -> Bool {
+        let state = scrap.document.documentState
+        guard !state.contains(.progressAvailable),
+              !state.contains(.editingDisabled),
+              !state.contains(.inConflict) else {
+            return false
+        }
+        return scrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     @discardableResult
