@@ -605,6 +605,12 @@ class DocumentManager: ObservableObject {
         }
 
         documentObservers[key] = observer
+
+        // Seed the last-known state at registration so the first state-change notification
+        // compares against the document's actual current state rather than a synthetic
+        // `.normal` default. Without this seed, a document that opens already in `.normal`
+        // never observes a prior non-normal state and its initial-load settle is missed.
+        lastDocumentStates[key] = document.documentState
     }
 
     private func removeObserver(for document: TextDocument) {
@@ -812,14 +818,24 @@ class DocumentManager: ObservableObject {
         // many times during an iCloud download (progress ticks) — publishing on each would
         // thrash MainView, ArchiveListView, and every downstream observer without any
         // observable text change. The transitions we do care about are:
-        //   - download/save settled: previous state was not `.normal`, new state is `.normal`
-        //   - conflict resolved: previous state contained `.inConflict`, new state doesn't
+        //   - externally-driven settle: previous state carried bits observers care about
+        //     (download in progress, editing disabled, conflict, save error) and we are
+        //     now back to `.normal`. Filtering on these specific bits avoids re-publishing
+        //     on every local save round-trip, where UIDocument can briefly transition out
+        //     of `.normal` and back without any externally-visible change.
+        //   - conflict resolved: `.inConflict` → `.inConflict` cleared. Note this can
+        //     publish twice for a single conflict (`.inConflict` → `.editingDisabled` →
+        //     `.normal`) because the second transition also qualifies as a settle; the
+        //     extra publish is harmless and not worth extra tracking state to suppress.
+        let externallyMeaningful: UIDocument.State = [
+            .progressAvailable, .editingDisabled, .inConflict, .savingError,
+        ]
         let key = ObjectIdentifier(document)
         let previous = lastDocumentStates[key] ?? .normal
         let current = document.documentState
         lastDocumentStates[key] = current
 
-        let settled = current == .normal && previous != .normal
+        let settled = current == .normal && previous.isDisjoint(with: externallyMeaningful) == false
         let conflictResolved = previous.contains(.inConflict) && current.contains(.inConflict) == false
         guard settled || conflictResolved else { return }
 
