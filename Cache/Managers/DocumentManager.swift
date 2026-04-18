@@ -63,79 +63,119 @@ class DocumentManager: ObservableObject {
     // Returns nil on error, empty array if no scraps exist yet.
     // All file ops on the iCloud container go through NSFileCoordinator so the iCloud
     // daemon sees a consistent view and so we don't race with in-flight syncs from other devices.
-    private func enumeratedScrapFiles() throws -> [URL]? {
+    // Async because NSFileCoordinator.coordinate(...) blocks the calling thread until the
+    // writer lock is granted — holding that on the main actor freezes the UI when another
+    // device is mid-sync. The coordinate helpers hop to a background queue.
+    private func enumeratedScrapFiles() async throws -> [URL]? {
         guard let documentsURL = documentsDirectoryURL else {
             print("Error: Could not get iCloud documents directory URL")
             return nil
         }
 
         if !FileManager.default.fileExists(atPath: documentsURL.path) {
-            try coordinateWrite(at: documentsURL, options: .forReplacing) { url in
+            // Default options ([]) — .forReplacing would imply overwrite semantics to other
+            // presenters, which is wrong for create-if-missing.
+            try await Self.coordinateWrite(at: documentsURL, options: []) { url in
                 try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
             }
         }
 
-        var contents: [URL] = []
-        try coordinateRead(at: documentsURL, options: []) { url in
-            contents = try FileManager.default.contentsOfDirectory(
+        let contents: [URL] = try await Self.coordinateRead(at: documentsURL, options: []) { url in
+            try FileManager.default.contentsOfDirectory(
                 at: url,
                 includingPropertiesForKeys: nil
             )
         }
-        return try normalizeLegacyScrapFiles(in: contents)
+        return try await normalizeLegacyScrapFiles(in: contents)
     }
 
-    private func coordinateRead(at url: URL,
-                                options: NSFileCoordinator.ReadingOptions,
-                                _ body: (URL) throws -> Void) throws {
-        let coordinator = NSFileCoordinator(filePresenter: nil)
-        var coordError: NSError?
-        var thrown: Error?
-        coordinator.coordinate(readingItemAt: url, options: options, error: &coordError) { coordinatedURL in
-            do { try body(coordinatedURL) } catch { thrown = error }
-        }
-        if let coordError { throw coordError }
-        if let thrown { throw thrown }
-    }
-
-    private func coordinateWrite(at url: URL,
-                                 options: NSFileCoordinator.WritingOptions,
-                                 _ body: (URL) throws -> Void) throws {
-        let coordinator = NSFileCoordinator(filePresenter: nil)
-        var coordError: NSError?
-        var thrown: Error?
-        coordinator.coordinate(writingItemAt: url, options: options, error: &coordError) { coordinatedURL in
-            do { try body(coordinatedURL) } catch { thrown = error }
-        }
-        if let coordError { throw coordError }
-        if let thrown { throw thrown }
-    }
-
-    private func coordinateMove(from source: URL, to destination: URL) throws {
-        let coordinator = NSFileCoordinator(filePresenter: nil)
-        var coordError: NSError?
-        var thrown: Error?
-        coordinator.coordinate(
-            writingItemAt: source, options: .forMoving,
-            writingItemAt: destination, options: .forReplacing,
-            error: &coordError
-        ) { src, dst in
-            do {
-                try FileManager.default.moveItem(at: src, to: dst)
-                coordinator.item(at: src, didMoveTo: dst)
-            } catch {
-                thrown = error
+    // filePresenter is nil because the owning TextDocument (a UIDocument) is already
+    // registered as presenter for its own file and receives coordination callbacks directly.
+    // For a DocumentManager-initiated delete/rename of a file that is open in-process, this
+    // means the coordinator still notifies the document — accepted here to keep the helper
+    // call-site-agnostic rather than threading the owning document through every path.
+    private nonisolated static func coordinateRead<T: Sendable>(
+        at url: URL,
+        options: NSFileCoordinator.ReadingOptions,
+        _ body: @Sendable @escaping (URL) throws -> T
+    ) async throws -> T {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let coordinator = NSFileCoordinator(filePresenter: nil)
+                var coordError: NSError?
+                var result: Result<T, Error>?
+                coordinator.coordinate(readingItemAt: url, options: options, error: &coordError) { coordinatedURL in
+                    result = Result { try body(coordinatedURL) }
+                }
+                if let coordError {
+                    continuation.resume(throwing: coordError)
+                } else if let result {
+                    continuation.resume(with: result)
+                } else {
+                    continuation.resume(throwing: CocoaError(.fileReadUnknown))
+                }
             }
         }
-        if let coordError { throw coordError }
-        if let thrown { throw thrown }
+    }
+
+    private nonisolated static func coordinateWrite(
+        at url: URL,
+        options: NSFileCoordinator.WritingOptions,
+        _ body: @Sendable @escaping (URL) throws -> Void
+    ) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let coordinator = NSFileCoordinator(filePresenter: nil)
+                var coordError: NSError?
+                var thrown: Error?
+                coordinator.coordinate(writingItemAt: url, options: options, error: &coordError) { coordinatedURL in
+                    do { try body(coordinatedURL) } catch { thrown = error }
+                }
+                if let coordError {
+                    continuation.resume(throwing: coordError)
+                } else if let thrown {
+                    continuation.resume(throwing: thrown)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+    }
+
+    private nonisolated static func coordinateMove(from source: URL, to destination: URL) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let coordinator = NSFileCoordinator(filePresenter: nil)
+                var coordError: NSError?
+                var thrown: Error?
+                coordinator.coordinate(
+                    writingItemAt: source, options: .forMoving,
+                    writingItemAt: destination, options: .forReplacing,
+                    error: &coordError
+                ) { src, dst in
+                    do {
+                        try FileManager.default.moveItem(at: src, to: dst)
+                        coordinator.item(at: src, didMoveTo: dst)
+                    } catch {
+                        thrown = error
+                    }
+                }
+                if let coordError {
+                    continuation.resume(throwing: coordError)
+                } else if let thrown {
+                    continuation.resume(throwing: thrown)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
     }
 
     // Two-phase load used only at init: opens the latest scrap first so the UI becomes
     // interactive immediately, then loads older scraps in the background.
     private func loadScrapsInitial() async {
         do {
-            guard let scrapFiles = try enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
+            guard let scrapFiles = try await enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
 
             // Filenames encode the timestamp, so descending lexicographic order = latest first
             let sortedFiles = scrapFiles.sorted { $0.lastPathComponent > $1.lastPathComponent }
@@ -197,7 +237,7 @@ class DocumentManager: ObservableObject {
 
     private func loadScraps() async {
         do {
-            guard let scrapFiles = try enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
+            guard let scrapFiles = try await enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
 
             // Open all documents concurrently
             let loadedScraps = await withTaskGroup(of: (Scrap, Bool).self, returning: [Scrap].self) { group in
@@ -327,7 +367,7 @@ class DocumentManager: ObservableObject {
 
         if success {
             do {
-                try coordinateWrite(at: scrap.document.fileURL, options: .forDeleting) { url in
+                try await Self.coordinateWrite(at: scrap.document.fileURL, options: .forDeleting) { url in
                     try FileManager.default.removeItem(at: url)
                 }
 
@@ -404,7 +444,12 @@ class DocumentManager: ObservableObject {
         NotificationCenter.default.removeObserver(observer)
     }
 
-    private func normalizeLegacyScrapFiles(in contents: [URL]) throws -> [URL] {
+    // Note: the outer directory read lock from enumeratedScrapFiles() is dropped before the
+    // per-file move locks below are taken. A remote delete/rename slipping in between would
+    // make moveItem throw, which we log and skip. Legacy-filename normalisation is a
+    // one-shot migration, so per-file best-effort is acceptable rather than holding a
+    // directory-wide writer lock across every move.
+    private func normalizeLegacyScrapFiles(in contents: [URL]) async throws -> [URL] {
         var normalizedFiles: [URL] = []
 
         for fileURL in contents where fileURL.lastPathComponent.hasPrefix("scrap-") && fileURL.lastPathComponent.hasSuffix(".txt") {
@@ -433,7 +478,7 @@ class DocumentManager: ObservableObject {
             }
 
             do {
-                try coordinateMove(from: fileURL, to: normalizedURL)
+                try await Self.coordinateMove(from: fileURL, to: normalizedURL)
                 normalizedFiles.append(normalizedURL)
             } catch {
                 print("Warning: Failed to normalize legacy scrap filename \(fileURL.lastPathComponent): \(error)")
