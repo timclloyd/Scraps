@@ -23,6 +23,12 @@ class DocumentManager: ObservableObject {
     private var documentObservers: [ObjectIdentifier: NSObjectProtocol] = [:]
     private var ubiquityIdentityObserver: NSObjectProtocol?
 
+    // Tracks the most recent UIDocument.State per document so state-change
+    // notifications during iCloud download (many `.progressAvailable` ticks) can be
+    // filtered down to terminal transitions. Without this, every progress tick
+    // re-rendered MainView + ArchiveListView + the search pipeline.
+    private var lastDocumentStates: [ObjectIdentifier: UIDocument.State] = [:]
+
     private var hasBackgrounded = false
     private var isInitialLoad = true
 
@@ -603,6 +609,7 @@ class DocumentManager: ObservableObject {
 
     private func removeObserver(for document: TextDocument) {
         let key = ObjectIdentifier(document)
+        lastDocumentStates.removeValue(forKey: key)
 
         guard let observer = documentObservers.removeValue(forKey: key) else { return }
         NotificationCenter.default.removeObserver(observer)
@@ -801,13 +808,23 @@ class DocumentManager: ObservableObject {
             }
         }
 
-        // Trigger UI update when document changes from another device
-        // SwiftUI will observe changes to the document's text property
-        if document.documentState.contains(.editingDisabled) == false {
-            // Force SwiftUI to refresh by triggering objectWillChange
-            // Already on main actor, no dispatch needed
-            self.objectWillChange.send()
-        }
+        // Only publish on terminal transitions. UIDocument fires .stateChangedNotification
+        // many times during an iCloud download (progress ticks) — publishing on each would
+        // thrash MainView, ArchiveListView, and every downstream observer without any
+        // observable text change. The transitions we do care about are:
+        //   - download/save settled: previous state was not `.normal`, new state is `.normal`
+        //   - conflict resolved: previous state contained `.inConflict`, new state doesn't
+        let key = ObjectIdentifier(document)
+        let previous = lastDocumentStates[key] ?? .normal
+        let current = document.documentState
+        lastDocumentStates[key] = current
+
+        let settled = current == .normal && previous != .normal
+        let conflictResolved = previous.contains(.inConflict) && current.contains(.inConflict) == false
+        guard settled || conflictResolved else { return }
+
+        // Already on main actor, no dispatch needed
+        self.objectWillChange.send()
     }
 
     nonisolated deinit {
