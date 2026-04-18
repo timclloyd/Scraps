@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import UIKit
+import os
 
 @MainActor
 class DocumentManager: ObservableObject {
@@ -14,6 +15,10 @@ class DocumentManager: ObservableObject {
     private var hasBackgrounded = false
     private var isInitialLoad = true
     private let calendar = Calendar.current
+
+    // Single canonical slot for the background-save task so rapid inactive/active
+    // cycles can't leak overlapping identifiers between captured closure locals.
+    private var backgroundSaveTaskID: UIBackgroundTaskIdentifier = .invalid
 
     private var documentsDirectoryURL: URL? {
         guard let containerURL = FileManager.default.url(forUbiquityContainerIdentifier: nil) else {
@@ -255,10 +260,75 @@ class DocumentManager: ObservableObject {
         }
     }
 
-    func saveAllDocuments() {
-        // Save all scraps (called when app backgrounds)
+    func beginBackgroundSaveBarrier() {
+        let app = UIApplication.shared
+        // End any previously-outstanding task first so we only ever hold one.
+        if backgroundSaveTaskID != .invalid {
+            app.endBackgroundTask(backgroundSaveTaskID)
+            backgroundSaveTaskID = .invalid
+        }
+        backgroundSaveTaskID = app.beginBackgroundTask(withName: "SaveAllScraps") { [weak self] in
+            guard let self else { return }
+            if self.backgroundSaveTaskID != .invalid {
+                app.endBackgroundTask(self.backgroundSaveTaskID)
+                self.backgroundSaveTaskID = .invalid
+            }
+        }
+        saveAllDocuments { [weak self] in
+            guard let self else { return }
+            if self.backgroundSaveTaskID != .invalid {
+                app.endBackgroundTask(self.backgroundSaveTaskID)
+                self.backgroundSaveTaskID = .invalid
+            }
+        }
+    }
+
+    func saveAllDocuments(completion: (@MainActor @Sendable () -> Void)? = nil) {
+        // Save all scraps (called when app backgrounds). Takes a completion so the
+        // caller can hold a UIBackgroundTask open until every async UIDocument.save
+        // has actually written to disk — without this, the process can exit on
+        // Cmd+Q before the last keystroke is persisted.
+        guard !scraps.isEmpty else {
+            completion?()
+            return
+        }
+
+        let group = DispatchGroup()
         for scrap in scraps {
-            saveDocument(scrap)
+            group.enter()
+            scrap.document.save(to: scrap.document.fileURL, for: .forOverwriting) { success in
+                if !success {
+                    print("Error: Failed to save scrap: \(scrap.filename)")
+                }
+                group.leave()
+            }
+        }
+
+        // Watchdog: if a UIDocument.save never invokes its completion (document in a
+        // bad state, coordinator deadlock), release the barrier anyway so we don't
+        // sit on the background task until the OS kills us (~30s).
+        let fired = OSAllocatedUnfairLock(initialState: false)
+        let fire: @MainActor @Sendable () -> Void = {
+            let shouldRun = fired.withLock { already -> Bool in
+                guard !already else { return false }
+                already = true
+                return true
+            }
+            if shouldRun { completion?() }
+        }
+
+        group.notify(queue: .main) {
+            // notify(queue: .main) lands on the main *thread* but not the main
+            // *actor*; assumeIsolated bridges that for Swift 6 isolation checking.
+            MainActor.assumeIsolated { fire() }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
+            let wasStuck = fired.withLock { $0 == false }
+            if wasStuck {
+                print("Warning: saveAllDocuments watchdog fired after 20s — at least one save did not complete")
+            }
+            MainActor.assumeIsolated { fire() }
         }
     }
 
