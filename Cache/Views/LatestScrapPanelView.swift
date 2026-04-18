@@ -29,7 +29,8 @@ struct LatestScrapPanelView: View {
                             showsSeparator: false,
                             autoFocus: latestScrap.id == documentManager.focusedScrapID && viewMode == .latest,
                             topPadding: 18,
-                            editorFont: editorFont
+                            editorFont: editorFont,
+                            forceEditor: true
                         )
                     }
                 }
