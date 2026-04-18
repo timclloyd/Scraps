@@ -293,11 +293,23 @@ class DocumentManager: ObservableObject {
             return nil
         }
 
-        let now = Date()
-        let filename = Scrap.generateFilename(for: now)
-        let fileURL = documentsURL.appendingPathComponent(filename)
+        // Filenames encode to second precision, so two creations inside the same second
+        // (rapid new-scrap-on-demand, or on-demand creation racing the day-boundary
+        // check) would collide. Bump the timestamp one second at a time until we find
+        // an unused slot; this preserves chronological sort order without inventing a
+        // new filename scheme. Also guard against an in-memory Scrap already holding
+        // the same id so we don't re-open a scrap that's mid-delete.
+        let existingFilenames = Set(scraps.map(\.filename))
+        var timestamp = Date()
+        var filename = Scrap.generateFilename(for: timestamp)
+        var fileURL = documentsURL.appendingPathComponent(filename)
+        while existingFilenames.contains(filename) || FileManager.default.fileExists(atPath: fileURL.path) {
+            timestamp = timestamp.addingTimeInterval(1)
+            filename = Scrap.generateFilename(for: timestamp)
+            fileURL = documentsURL.appendingPathComponent(filename)
+        }
         let document = TextDocument(fileURL: fileURL)
-        let scrap = Scrap(timestamp: now, filename: filename, document: document)
+        let scrap = Scrap(timestamp: timestamp, filename: filename, document: document)
 
         let success = await withCheckedContinuation { continuation in
             document.save(to: fileURL, for: .forCreating) { success in
