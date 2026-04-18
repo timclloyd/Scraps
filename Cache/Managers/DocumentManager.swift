@@ -669,6 +669,17 @@ class DocumentManager: ObservableObject {
         focusedScrapFilename = scrap.filename
     }
 
+    // Shared focus setter for UI callbacks (editor focus, preview tap). Writes to
+    // UserDefaults only once initialisation completes so an early focus event during
+    // load doesn't overwrite the persisted last-focused filename.
+    func setFocusedScrap(id: String, filename: String) {
+        focusedScrapID = id
+        focusedScrapFilename = filename
+        if isReady {
+            UserDefaults.standard.set(filename, forKey: "lastFocusedScrapFilename")
+        }
+    }
+
     private func handleDocumentStateChanged(_ notification: Notification) {
         guard let document = notification.object as? TextDocument else { return }
 
