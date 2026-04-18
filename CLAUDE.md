@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Last Updated:** 2025-11-13
+**Last Updated:** 2026-04-18
 
 ## Maintenance Protocol
 
@@ -117,12 +117,11 @@ Cache/
 ## Common Tasks
 
 ### Adding New Keyword Highlights
-Edit `TextHighlightManager.swift:29-58` to add patterns:
+Edit the `HighlightPatterns` enum at the top of `TextHighlightManager.swift` (the
+`keywordRegexes` array). Patterns are shared between the live editor and the
+read-only archive preview (`ScrapPreviewView`). Use `\b` for word boundaries:
 ```swift
-HighlightPattern(
-    pattern: "\\byourword\\b",  // Use \b for word boundaries
-    backgroundColor: Theme.dynamicHighlightColor(for: UITraitCollection.current)
-)
+"\\byourword\\b"
 ```
 
 ### Changing Scrap Creation Threshold

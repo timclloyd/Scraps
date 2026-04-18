@@ -7,11 +7,15 @@
 
 import SwiftUI
 
-class TextHighlightManager: NSLayoutManager {
+// Shared regex set and colour used by both the live editor (`TextHighlightManager`)
+// and the read-only archive preview (`ScrapPreviewView`). Kept here as a top-level
+// enum so the preview can re-use the identical patterns without duplicating them
+// and without adding a new file (which would require pbxproj edits).
+enum HighlightPatterns {
     // Keywords to highlight for quick visual scanning. Patterns use word boundaries (\b)
-    // to avoid partial matches. Compiled once at class load — previously each instance
-    // of TextHighlightManager (one per visible archive card) re-compiled all 7 regexes.
-    private static let keywordRegexes: [NSRegularExpression] = {
+    // to avoid partial matches. Compiled once at load — previously each instance of
+    // TextHighlightManager (one per visible archive card) re-compiled all 7 regexes.
+    static let keywordRegexes: [NSRegularExpression] = {
         let rawPatterns = [
             "\\bidea[a-zA-Z]*",     // "idea", "ideas", etc.
             "\\bfun\\b",
@@ -26,11 +30,7 @@ class TextHighlightManager: NSLayoutManager {
         }
     }()
 
-    private static let urlDetector: NSDataDetector? = {
-        try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-    }()
-
-    private static let strikeRegex: NSRegularExpression? = {
+    static let strikeRegex: NSRegularExpression? = {
         try? NSRegularExpression(pattern: "~~.+?~~")
     }()
 
@@ -39,9 +39,15 @@ class TextHighlightManager: NSLayoutManager {
     // inside processEditing, but .current is only guaranteed correct inside specific
     // UIKit callbacks — this pattern is robust across any invocation context and avoids
     // a per-keystroke resolution call.
-    private static let keywordHighlightColor: UIColor = UIColor { traits in
+    static let keywordHighlightColor: UIColor = UIColor { traits in
         Theme.highlightColor(for: traits)
     }
+}
+
+class TextHighlightManager: NSLayoutManager {
+    private static let urlDetector: NSDataDetector? = {
+        try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    }()
 
     var normalFont: UIFont?
 
@@ -91,10 +97,10 @@ class TextHighlightManager: NSLayoutManager {
 
         // Apply keyword highlighting. keywordHighlightColor is a dynamic UIColor;
         // UIKit resolves it against the text view's real trait collection at draw time.
-        for regex in Self.keywordRegexes {
+        for regex in HighlightPatterns.keywordRegexes {
             regex.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
                 guard let range = match?.range, range.upperBound <= storageLength else { return }
-                textStorage.addAttribute(.backgroundColor, value: Self.keywordHighlightColor, range: range)
+                textStorage.addAttribute(.backgroundColor, value: HighlightPatterns.keywordHighlightColor, range: range)
             }
         }
 
@@ -108,7 +114,7 @@ class TextHighlightManager: NSLayoutManager {
         }
 
         // Apply strikethrough for ~~text~~ patterns, markers and content included.
-        Self.strikeRegex?.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
+        HighlightPatterns.strikeRegex?.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
             guard let matchRange = match?.range, matchRange.upperBound <= storageLength else { return }
             textStorage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: matchRange)
             textStorage.addAttribute(.foregroundColor, value: UIColor.systemGray3, range: matchRange)
