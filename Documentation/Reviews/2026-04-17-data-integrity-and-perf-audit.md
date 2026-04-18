@@ -8,19 +8,19 @@
 
 | # | ID | Severity | Title | Status |
 |---|----|----------|-------|--------|
-| 1 | C1 | Critical | `TextDocument` uses `DispatchQueue.main.sync` — deadlock risk | WIP in review (`fix/text-document-actor-safety`) |
-| 2 | C2 | Critical | Scene-background saves don't wait — data loss on Cmd+Q / terminate | WIP in review (`fix/background-save-barrier`) |
+| 1 | C1 | Critical | `TextDocument` uses `DispatchQueue.main.sync` — deadlock risk | Merged (PR #3) |
+| 2 | C2 | Critical | Scene-background saves don't wait — data loss on Cmd+Q / terminate | Merged (PR #4) |
 | 3 | C3 | Critical | `loadScrapsInitial` Phase 2 assumes `scraps` untouched — stale inserts | Open |
-| 4 | C4 | Critical | `deleteScrap` uses raw `FileManager.removeItem` — bypasses coordination | WIP in review (`fix/file-coordination`) |
-| 5 | C5 | Critical | Directory create / enumerate / legacy move uncoordinated | WIP in review (`fix/file-coordination`) |
-| 6 | H1 | High | Empty-scrap auto-delete races iCloud download | WIP in review (`fix/empty-scrap-download-race`) |
+| 4 | C4 | Critical | `deleteScrap` uses raw `FileManager.removeItem` — bypasses coordination | Merged (PR #5) |
+| 5 | C5 | Critical | Directory create / enumerate / legacy move uncoordinated | Merged (PR #5) |
+| 6 | H1 | High | Empty-scrap auto-delete races iCloud download | Merged (PR #6) |
 | 7 | H2 | High | `Calendar.current` captured once — TZ/DST drift vs UTC filenames | Open |
 | 8 | H3 | High | `objectWillChange.send()` storm on every UIDocument state tick | Open |
 | 9 | H4 | High | Search `computeMatches` O(N·M), no debounce | Open |
 | 10 | H5 | High | `ForEach(Array(scraps.reversed()))` re-allocates every render | Open |
 | 11 | H6 | High | Every archive card instantiates a full `UITextView` + regex compilation | Open |
-| 12 | H7 | High | `TextHighlightManager` recompiles 7 regexes per instance | WIP in review (`fix/highlight-manager-perf`) |
-| 13 | H8 | High | `textStorage.string` copies full document per keystroke | WIP in review (`fix/highlight-manager-perf`) |
+| 12 | H7 | High | `TextHighlightManager` recompiles 7 regexes per instance | Merged (PR #7) |
+| 13 | H8 | High | `textStorage.string` copies full document per keystroke | Merged (PR #7) |
 | 14 | M1 | Medium | Double-dispatched scroll coalesces poorly at fast typing | Open |
 | 15 | M2 | Medium | Per-coordinator `keyboardDidShow` observer duplicates shared tracker | Open |
 | 16 | M3 | Medium | `UserDefaults.set` on every focus change | Open |
@@ -40,17 +40,17 @@
 
 ## Todo
 
-- [ ] **C1** — Merge `fix/text-document-actor-safety`
-- [ ] **C2** — Merge `fix/background-save-barrier`
+- [x] **C1** — Merged (PR #3)
+- [x] **C2** — Merged (PR #4)
 - [ ] **C3** — After Phase 2 completes, diff against current `scraps` rather than `insert(at: 0)`
-- [ ] **C4/C5** — Merge `fix/file-coordination`; add a lint rule or review checklist to keep raw `FileManager` calls on the iCloud container a forbidden pattern
-- [ ] **H1** — Merge `fix/empty-scrap-download-race`
+- [x] **C4/C5** — Merged (PR #5). Follow-up: add a lint rule or review checklist to keep raw `FileManager` calls on the iCloud container a forbidden pattern
+- [x] **H1** — Merged (PR #6)
 - [ ] **H2** — Read `Calendar.current` at each call site; align filename generation and same-day comparison on the same timezone (preferably local)
 - [ ] **H3** — Only `objectWillChange.send()` on terminal state transitions (loaded, saved, conflict-resolved), not on progress ticks
 - [ ] **H4** — Debounce search by ~150 ms; incrementally narrow prior results when the new query extends the old one
 - [ ] **H5** — Store `scraps` newest-first (matches display order); drop the `reversed()` allocation
 - [ ] **H6** — For non-focused scraps, use a read-only `AttributedString`/`Text` path instead of `UITextView`; reserve `UITextView` for the focused scrap only
-- [ ] **H7/H8** — Merge `fix/highlight-manager-perf`
+- [x] **H7/H8** — Merged (PR #7)
 - [ ] **M1** — Coalesce `textViewDidChange` scroll via a cancellable `DispatchWorkItem`
 - [ ] **M2** — Remove the per-coordinator `keyboardDidShow` observer; rely on the shared `KeyboardTracker` in `MainView`
 - [ ] **M3** — Debounce focused-filename `UserDefaults.set`, or only persist on background
