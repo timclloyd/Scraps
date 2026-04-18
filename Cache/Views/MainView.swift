@@ -136,6 +136,10 @@ struct MainView: View {
                     onToggleSearch: toggleSearch
                 )
                 .ignoresSafeArea(edges: .top)
+
+                if !documentManager.iCloudAvailable {
+                    iCloudUnavailableOverlay
+                }
             }
         }
         .background(Theme.archiveBackground)
@@ -152,6 +156,55 @@ struct MainView: View {
                 viewMode = .archive
             }
         }
+    }
+
+    // MARK: - iCloud status
+
+    // Renders a full-screen explanatory overlay when the ubiquity container is
+    // unavailable. Silent degradation here is indistinguishable from data loss —
+    // the user must know why their scraps are missing and how to fix it.
+    private var iCloudUnavailableOverlay: some View {
+        ZStack {
+            Theme.archiveBackground.ignoresSafeArea()
+            VStack(spacing: 16) {
+                Text("iCloud unavailable")
+                    .font(.headline)
+                Text(iCloudUnavailableMessage)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                Button(action: openSettings) {
+                    Text("Open Settings")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Theme.latestPanelBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(Color(Theme.panelBorderColor), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        // Swallow taps so the editor underneath can't receive them while the
+        // overlay is visible — otherwise invisible keystrokes reach UIDocument.
+        .contentShape(Rectangle())
+    }
+
+    private var iCloudUnavailableMessage: String {
+        #if targetEnvironment(macCatalyst)
+        return "Scraps needs iCloud Drive to sync and save your notes. Sign in to iCloud and enable iCloud Drive for Scraps in System Settings."
+        #else
+        return "Scraps needs iCloud Drive to sync and save your notes. Sign in to iCloud and enable iCloud Drive for Scraps in Settings."
+        #endif
+    }
+
+    private func openSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 
     // MARK: - Navigation

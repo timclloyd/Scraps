@@ -9,8 +9,19 @@ class DocumentManager: ObservableObject {
     @Published var focusedScrapID: String?
     @Published var focusedScrapFilename: String?
     @Published var isReady = false
+    // iCloud ubiquity-container status. When `false`, the user is either signed out
+    // of iCloud, has disabled iCloud Drive for this app, or the container hasn't
+    // finished provisioning. Without surfacing this, the app silently shows an
+    // empty list and every keystroke is lost — indistinguishable from data loss.
+    //
+    // Defaults to `true` so the overlay doesn't flash on during the first frame
+    // before the asynchronous probe completes; the common case is that iCloud
+    // is available, and a transient false-negative is worse than a brief delay
+    // to surface a genuine outage.
+    @Published var iCloudAvailable: Bool = true
 
     private var documentObservers: [ObjectIdentifier: NSObjectProtocol] = [:]
+    private var ubiquityIdentityObserver: NSObjectProtocol?
 
     private var hasBackgrounded = false
     private var isInitialLoad = true
@@ -19,16 +30,42 @@ class DocumentManager: ObservableObject {
     // cycles can't leak overlapping identifiers between captured closure locals.
     private var backgroundSaveTaskID: UIBackgroundTaskIdentifier = .invalid
 
+    // Cached container URL resolved by the async probe. Avoids a second
+    // forUbiquityContainerIdentifier syscall on every directory access, and
+    // keeps the "available" signal and the URL it resolved to consistent.
+    private var ubiquityContainerURL: URL?
+
     private var documentsDirectoryURL: URL? {
-        guard let containerURL = FileManager.default.url(forUbiquityContainerIdentifier: nil) else {
-            return nil
-        }
-        return containerURL.appendingPathComponent("Documents")
+        ubiquityContainerURL?.appendingPathComponent("Documents")
     }
 
     init() {
-        // Perform async initialization in a task
+        // Observe identity changes (user signs out / switches iCloud accounts)
+        // so the overlay reflects reality without requiring an app relaunch.
+        ubiquityIdentityObserver = NotificationCenter.default.addObserver(
+            forName: .NSUbiquityIdentityDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.probeUbiquityAvailability()
+            }
+        }
+
         Task {
+            // forUbiquityContainerIdentifier can block for hundreds of ms on first
+            // launch while the daemon provisions the container; keep it off the
+            // main actor so the first frame paints immediately.
+            await probeUbiquityAvailabilityAsync()
+
+            guard iCloudAvailable else {
+                // No container — nothing to load. Still mark ready so the UI can
+                // surface the unavailable state rather than spinning forever.
+                isInitialLoad = false
+                isReady = true
+                return
+            }
+
             // Step 1: Load existing scraps, prioritising the latest so the UI is interactive ASAP
             await loadScrapsInitial()
 
@@ -616,11 +653,30 @@ class DocumentManager: ObservableObject {
         return normalizedFiles
     }
 
+    // Hops off the main actor for the syscall and assigns the result back on
+    // main. Callable from init and from identity-change notifications.
+    private func probeUbiquityAvailabilityAsync() async {
+        let url = await Task.detached(priority: .userInitiated) {
+            FileManager.default.url(forUbiquityContainerIdentifier: nil)
+        }.value
+        ubiquityContainerURL = url
+        iCloudAvailable = url != nil
+    }
+
+    private func probeUbiquityAvailability() {
+        Task { await probeUbiquityAvailabilityAsync() }
+    }
+
     func checkForUpdates() {
         // Skip if we're still doing the initial load
         guard !isInitialLoad else { return }
 
         Task {
+            // Re-probe on foreground in case the user toggled iCloud Drive for
+            // Scraps in Settings while the app was backgrounded.
+            await probeUbiquityAvailabilityAsync()
+            guard iCloudAvailable else { return }
+
             await loadScraps()
 
             guard shouldCreateNewScrap() else {
@@ -758,6 +814,9 @@ class DocumentManager: ObservableObject {
         // Remove all observers
         for observer in documentObservers.values {
             NotificationCenter.default.removeObserver(observer)
+        }
+        if let ubiquityIdentityObserver {
+            NotificationCenter.default.removeObserver(ubiquityIdentityObserver)
         }
     }
 }
