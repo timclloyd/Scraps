@@ -9,6 +9,11 @@ class DocumentManager: ObservableObject {
     @Published var focusedScrapID: String?
     @Published var focusedScrapFilename: String?
     @Published var isReady = false
+    // iCloud ubiquity-container status. When `false`, the user is either signed out
+    // of iCloud, has disabled iCloud Drive for this app, or the container hasn't
+    // finished provisioning. Without surfacing this, the app silently shows an
+    // empty list and every keystroke is lost — indistinguishable from data loss.
+    @Published var iCloudAvailable: Bool = true
 
     private var documentObservers: [ObjectIdentifier: NSObjectProtocol] = [:]
 
@@ -28,8 +33,20 @@ class DocumentManager: ObservableObject {
     }
 
     init() {
+        // Probe ubiquity container synchronously before kicking off async load so
+        // the UI has a definitive signal to render on the first frame.
+        iCloudAvailable = FileManager.default.url(forUbiquityContainerIdentifier: nil) != nil
+
         // Perform async initialization in a task
         Task {
+            guard iCloudAvailable else {
+                // No container — nothing to load. Still mark ready so the UI can
+                // surface the unavailable state rather than spinning forever.
+                isInitialLoad = false
+                isReady = true
+                return
+            }
+
             // Step 1: Load existing scraps, prioritising the latest so the UI is interactive ASAP
             await loadScrapsInitial()
 

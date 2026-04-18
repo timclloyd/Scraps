@@ -136,6 +136,10 @@ struct MainView: View {
                     onToggleSearch: toggleSearch
                 )
                 .ignoresSafeArea(edges: .top)
+
+                if !documentManager.iCloudAvailable {
+                    iCloudUnavailableOverlay
+                }
             }
         }
         .background(Theme.archiveBackground)
@@ -150,6 +154,26 @@ struct MainView: View {
             clearSearch()
             withAnimation(Theme.navigationAnimation) {
                 viewMode = .archive
+            }
+        }
+    }
+
+    // MARK: - iCloud status
+
+    // Renders a full-screen explanatory overlay when the ubiquity container is
+    // unavailable. Silent degradation here is indistinguishable from data loss —
+    // the user must know why their scraps are missing and how to fix it.
+    private var iCloudUnavailableOverlay: some View {
+        ZStack {
+            Theme.archiveBackground.ignoresSafeArea()
+            VStack(spacing: 12) {
+                Text("iCloud unavailable")
+                    .font(.headline)
+                Text("Scraps needs iCloud Drive to sync and save your notes. Sign in to iCloud and enable iCloud Drive for Scraps in Settings, then relaunch the app.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
             }
         }
     }
