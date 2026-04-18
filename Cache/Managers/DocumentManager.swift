@@ -230,11 +230,29 @@ class DocumentManager: ObservableObject {
                 return results
             }
 
-            for scrap in otherScraps { attachObserver(to: scrap.document) }
-            // Phase 2 items are always older, so index 0 is correct. Prepending rather than
-            // replacing avoids triggering a defaultScrollAnchor re-anchor animation if Phase 2
-            // completes while a panel transition is in-flight.
-            scraps.insert(contentsOf: otherScraps.sorted { $0.timestamp < $1.timestamp }, at: 0)
+            // Between Phase 1 completing and Phase 2 finishing, `scraps` may have been
+            // mutated by on-demand creation, deletion, or a full `replaceLoadedScraps`.
+            // Diff by filename and drop anything already present to avoid duplicate
+            // entries + leaked TextDocuments. Close the duplicates so UIDocument's
+            // internal file presenter is unregistered.
+            let existingFilenames = Set(scraps.map(\.filename))
+            var newScraps: [Scrap] = []
+            newScraps.reserveCapacity(otherScraps.count)
+            for scrap in otherScraps {
+                if existingFilenames.contains(scrap.filename) {
+                    scrap.document.close { _ in }
+                } else {
+                    newScraps.append(scrap)
+                }
+            }
+            guard !newScraps.isEmpty else { return }
+
+            for scrap in newScraps { attachObserver(to: scrap.document) }
+            // Merge and re-sort by timestamp — Phase 2 items are usually older than
+            // whatever was loaded in Phase 1, but on-demand-created scraps may have
+            // landed in the meantime, so the full sort is the only safe assumption.
+            scraps.append(contentsOf: newScraps)
+            scraps.sort { $0.timestamp < $1.timestamp }
 
         } catch {
             print("Error enumerating scrap files: \(error)")
