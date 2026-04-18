@@ -14,7 +14,6 @@ class DocumentManager: ObservableObject {
 
     private var hasBackgrounded = false
     private var isInitialLoad = true
-    private let calendar = Calendar.current
 
     // Single canonical slot for the background-save task so rapid inactive/active
     // cycles can't leak overlapping identifiers between captured closure locals.
@@ -335,7 +334,14 @@ class DocumentManager: ObservableObject {
             return false
         }
 
-        return calendar.isDate(latestScrap.timestamp, inSameDayAs: Date()) == false
+        // Read Calendar.current at the call site, not at init. A DocumentManager
+        // instance can outlive a timezone change (travel, DST) or a locale change
+        // (first-day-of-week); a cached Calendar would then compare against the
+        // wrong day boundary and either spuriously create a new scrap or skip
+        // creating one that's actually warranted. Using local-calendar
+        // `isSameDay` here aligns with how a human thinks about "today" — the
+        // UTC-encoded filename is for stable, collision-free sorting only.
+        return Calendar.current.isDate(latestScrap.timestamp, inSameDayAs: Date()) == false
     }
 
 
