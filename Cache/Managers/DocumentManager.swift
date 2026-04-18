@@ -240,6 +240,7 @@ class DocumentManager: ObservableObject {
             newScraps.reserveCapacity(otherScraps.count)
             for scrap in otherScraps {
                 if existingFilenames.contains(scrap.filename) {
+                    // Safe to discard: this duplicate was opened in Phase 2 but never had an observer attached and is not in `scraps`, so no user edits can have landed on it.
                     scrap.document.close { _ in }
                 } else {
                     newScraps.append(scrap)
