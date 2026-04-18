@@ -38,44 +38,16 @@ struct ScrapPreviewView: View {
         .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
         .onTapGesture {
-            documentManager.focusedScrapID = scrap.id
-            documentManager.focusedScrapFilename = scrap.filename
-            if documentManager.isReady {
-                UserDefaults.standard.set(scrap.filename, forKey: "lastFocusedScrapFilename")
-            }
+            documentManager.setFocusedScrap(id: scrap.id, filename: scrap.filename)
         }
     }
 
     // MARK: - Attributed-string builder
     //
     // Mirrors the attribute set applied by `TextHighlightManager.processEditing`
-    // (keyword background, strikethrough + gray, search highlight) so the preview
-    // is pixel-equivalent to the editor at rest. Not factored into a shared type
-    // because the editor runs inside an `NSLayoutManager` callback with per-line
-    // range scoping, while the preview operates on the full string once.
-
-    private static let keywordRegexes: [NSRegularExpression] = {
-        let rawPatterns = [
-            "\\bidea[a-zA-Z]*",
-            "\\bfun\\b",
-            "\\btodo\\b",
-            "\\bremember\\b",
-            "\\bimportant\\b",
-            "\\binteresting\\b",
-            "\\blater\\b"
-        ]
-        return rawPatterns.compactMap {
-            try? NSRegularExpression(pattern: $0, options: .caseInsensitive)
-        }
-    }()
-
-    private static let strikeRegex: NSRegularExpression? = {
-        try? NSRegularExpression(pattern: "~~.+?~~")
-    }()
-
-    private static let keywordHighlightColor: UIColor = UIColor { traits in
-        Theme.highlightColor(for: traits)
-    }
+    // so the preview is pixel-equivalent to the editor at rest. Patterns live on
+    // `HighlightPatterns` (in `TextHighlightManager.swift`) and are shared across
+    // both paths.
 
     private static func buildAttributedString(
         text: String,
@@ -90,14 +62,14 @@ struct ScrapPreviewView: View {
         let fullRange = NSRange(location: 0, length: (text as NSString).length)
         guard fullRange.length > 0 else { return result }
 
-        for regex in keywordRegexes {
+        for regex in HighlightPatterns.keywordRegexes {
             regex.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
                 guard let range = match?.range else { return }
-                result.addAttribute(.backgroundColor, value: keywordHighlightColor, range: range)
+                result.addAttribute(.backgroundColor, value: HighlightPatterns.keywordHighlightColor, range: range)
             }
         }
 
-        strikeRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
+        HighlightPatterns.strikeRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
             guard let matchRange = match?.range else { return }
             result.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: matchRange)
             result.addAttribute(.foregroundColor, value: UIColor.systemGray3, range: matchRange)
