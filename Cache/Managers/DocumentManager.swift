@@ -299,17 +299,28 @@ class DocumentManager: ObservableObject {
         // an unused slot; this preserves chronological sort order without inventing a
         // new filename scheme. Also guard against an in-memory Scrap already holding
         // the same id so we don't re-open a scrap that's mid-delete.
+        // TODO: Two devices creating scraps in the same second remain possible; that
+        // collision is out of scope here and relies on iCloud conflict resolution.
         let existingFilenames = Set(scraps.map(\.filename))
         var timestamp = Date()
         var filename = Scrap.generateFilename(for: timestamp)
         var fileURL = documentsURL.appendingPathComponent(filename)
-        while existingFilenames.contains(filename) || FileManager.default.fileExists(atPath: fileURL.path) {
+        while true {
+            let inMemoryCollision = existingFilenames.contains(filename)
+            let onDiskCollision = inMemoryCollision ? false : await coordinatedFileExists(at: fileURL)
+            if !inMemoryCollision && !onDiskCollision { break }
             timestamp = timestamp.addingTimeInterval(1)
             filename = Scrap.generateFilename(for: timestamp)
             fileURL = documentsURL.appendingPathComponent(filename)
         }
         let document = TextDocument(fileURL: fileURL)
         let scrap = Scrap(timestamp: timestamp, filename: filename, document: document)
+
+        // Publish the placeholder before the async save so a concurrent createNewScrap
+        // sees this filename in `existingFilenames` and picks the next second instead
+        // of racing the same stale set. On save failure we remove it below.
+        self.scraps.append(scrap)
+        self.scraps.sort { $0.timestamp < $1.timestamp }
 
         let success = await withCheckedContinuation { continuation in
             document.save(to: fileURL, for: .forCreating) { success in
@@ -319,16 +330,24 @@ class DocumentManager: ObservableObject {
 
         if success {
             attachObserver(to: document)
-
-            // Update UI
-            self.scraps.append(scrap)
-            // Sort to ensure chronological order (oldest first)
-            self.scraps.sort { $0.timestamp < $1.timestamp }
-
             return scrap
         } else {
             print("Error: Failed to create new scrap")
+            self.scraps.removeAll { $0.filename == filename }
             return nil
+        }
+    }
+
+    // Best-effort coordinated existence probe: lets iCloud settle any in-flight
+    // rename/create on this URL before we decide the slot is free. Falls back to
+    // a direct check on coordinator error so we never block scrap creation.
+    private func coordinatedFileExists(at url: URL) async -> Bool {
+        do {
+            return try await Self.coordinateRead(at: url, options: []) { coordinatedURL in
+                FileManager.default.fileExists(atPath: coordinatedURL.path)
+            }
+        } catch {
+            return FileManager.default.fileExists(atPath: url.path)
         }
     }
 
