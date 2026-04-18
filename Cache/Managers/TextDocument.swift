@@ -1,5 +1,6 @@
 import UIKit
 import Combine
+import os
 
 @MainActor
 class TextDocument: UIDocument, ObservableObject, @unchecked Sendable {
@@ -7,21 +8,31 @@ class TextDocument: UIDocument, ObservableObject, @unchecked Sendable {
         willSet {
             objectWillChange.send()
         }
+        didSet {
+            // Keeps the nonisolated snapshot in lockstep with the main-actor text
+            // property. contents(forType:) reads the snapshot without hopping actors,
+            // so any keystroke (via updateText) must land in the snapshot before the
+            // next autosave runs. Do not elide this — it is not redundant with the
+            // load() path's own setSnapshot call.
+            setSnapshot(text)
+        }
+    }
+
+    // Nonisolated snapshot read by contents(forType:) on whatever queue UIDocument chooses,
+    // and written by load(fromContents:) before hopping back to the main actor. Avoids
+    // DispatchQueue.main.sync which can deadlock with UIDocument's autosave machinery.
+    private let snapshot = OSAllocatedUnfairLock<String>(initialState: "")
+
+    nonisolated private func currentSnapshot() -> String {
+        snapshot.withLock { $0 }
+    }
+
+    nonisolated private func setSnapshot(_ value: String) {
+        snapshot.withLock { $0 = value }
     }
 
     nonisolated override func contents(forType typeName: String) throws -> Any {
-        // Save text as UTF-8 data
-        // Access text - dispatch to main thread if needed
-        let currentText: String
-        if Thread.isMainThread {
-            currentText = MainActor.assumeIsolated { text }
-        } else {
-            currentText = DispatchQueue.main.sync {
-                MainActor.assumeIsolated { text }
-            }
-        }
-
-        guard let data = currentText.data(using: .utf8) else {
+        guard let data = currentSnapshot().data(using: .utf8) else {
             throw NSError(domain: "TextDocument", code: 1, userInfo: [
                 NSLocalizedDescriptionKey: "Failed to encode text as UTF-8"
             ])
@@ -30,7 +41,6 @@ class TextDocument: UIDocument, ObservableObject, @unchecked Sendable {
     }
 
     nonisolated override func load(fromContents contents: Any, ofType typeName: String?) throws {
-        // Load text from UTF-8 data
         guard let data = contents as? Data else {
             throw NSError(domain: "TextDocument", code: 2, userInfo: [
                 NSLocalizedDescriptionKey: "Contents is not Data"
@@ -43,16 +53,18 @@ class TextDocument: UIDocument, ObservableObject, @unchecked Sendable {
             ])
         }
 
-        // Update text - dispatch to main thread if needed
+        setSnapshot(loadedText)
+        // If load happens to run on the main thread (some UIDocument open paths do),
+        // apply the UI-visible update synchronously so a user keystroke that happens
+        // immediately after open cannot be clobbered by a deferred Task. assumeIsolated
+        // is safe here — it asserts, it doesn't block like main.sync.
         if Thread.isMainThread {
             MainActor.assumeIsolated {
-                text = loadedText
+                self.text = loadedText
             }
         } else {
-            DispatchQueue.main.sync {
-                MainActor.assumeIsolated {
-                    text = loadedText
-                }
+            Task { @MainActor in
+                self.text = loadedText
             }
         }
     }
