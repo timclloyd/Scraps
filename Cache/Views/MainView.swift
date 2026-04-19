@@ -82,7 +82,6 @@ struct MainView: View {
 
                     LatestScrapPanelView(keyboardHeight: keyboardTracker.height, viewMode: viewMode, editorFont: editorFont)
                         .offset(y: viewMode == .latest ? 0 : geometry.size.height)
-                        .animation(Theme.navigationAnimation, value: viewMode)
                         .allowsHitTesting(viewMode == .latest)
 
                     // Solid background behind keyboard to prevent text showing through
@@ -109,7 +108,7 @@ struct MainView: View {
                     .allowsHitTesting(false)
                 }
                 .padding(.top, viewMode == .search ? 44 : 0)
-                .animation(Theme.navigationAnimation, value: viewMode == .search)
+                .animation(Theme.navigationOut, value: viewMode == .search)
                 .background(Theme.archiveBackground)
 
                 // Search bar — sits at the ZStack's safe-area top, i.e. directly below the toolbar
@@ -152,7 +151,7 @@ struct MainView: View {
         .onChange(of: documentManager.focusedScrapID) { _, _ in
             guard viewMode == .search else { return }
             clearSearch()
-            withAnimation(Theme.navigationAnimation) {
+            withAnimation(Theme.navigationOut) {
                 viewMode = .archive
             }
         }
@@ -225,18 +224,29 @@ struct MainView: View {
         switch viewMode {
         case .search:
             clearSearch()
+            dismissKeyboard()
+
             if priorMode == .archive {
-                withAnimation(Theme.navigationAnimation) {
+                withAnimation(Theme.navigationOut) {
                     viewMode = .archive
                 }
             } else {
-                transitionToLatest()
+                withAnimation(Theme.navigationOut) {
+                    viewMode = .latest
+                } completion: {
+                    documentManager.focusLatestScrap()
+                }
             }
+
         case .latest, .archive:
             priorMode = viewMode
             dismissKeyboard()
-            if viewMode == .latest { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-            withAnimation(Theme.navigationAnimation) {
+
+            if viewMode == .latest {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+
+            withAnimation(Theme.navigationIn) {
                 viewMode = .search
             }
         }
@@ -245,14 +255,14 @@ struct MainView: View {
     private func transitionToArchive() {
         dismissKeyboard()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(Theme.navigationAnimation) {
+        withAnimation(Theme.navigationOut) {
             viewMode = .archive
         }
     }
 
     private func transitionToLatest() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(Theme.navigationAnimation) {
+        withAnimation(Theme.navigationIn) {
             viewMode = .latest
         } completion: {
             documentManager.focusLatestScrap()

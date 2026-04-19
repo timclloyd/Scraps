@@ -39,7 +39,6 @@ struct LatestScrapPanelView: View {
             .scrollDismissesKeyboard(.never)
             .scrollIndicators(.hidden)
             .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
-            .animation(.easeOut(duration: 0.25), value: keyboardHeight)
             .background(Theme.latestPanelBackground)
             .overlay(alignment: .top) {
                 SmoothLinearGradient(

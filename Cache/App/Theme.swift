@@ -10,8 +10,15 @@ import SwiftUI
 enum Theme {
     
     //MARK: Animation
+    
+    static let navigationIn = Animation.spring(
+        response: 0.333,
+        dampingFraction: 1.0
+    )
 
-    static let navigationAnimation = Animation.spring(response: 0.2, dampingFraction: 1.0)
+    static let navigationOut = Animation.easeIn(
+        duration: 0.333
+    )
 
     //MARK: Fonts
     
