@@ -34,11 +34,17 @@ struct ScrapCardView: View {
 
             Group {
                 if forceEditor || isFocused || autoFocus {
+                    // For cards that share a single always-mounted editor (the latest panel,
+                    // `forceEditor: true`), `isFocused` is sticky across archive trips and
+                    // would mask the archive→latest transition, so we rely on `autoFocus`
+                    // alone to retrigger `becomeFirstResponder` after keyboard dismissal.
+                    // Archive cards mount their editor fresh on focus, so `isFocused` is
+                    // the right trigger there.
                     ScrapView(
                         scrap: scrap,
                         document: scrap.document,
                         font: editorFont,
-                        isInitialFocus: autoFocus || isFocused,
+                        isInitialFocus: forceEditor ? autoFocus : (autoFocus || isFocused),
                         searchQuery: searchQuery,
                         activeSearchRange: activeSearchRange
                     )
