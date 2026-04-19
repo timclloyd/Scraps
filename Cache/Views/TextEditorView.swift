@@ -187,25 +187,29 @@ struct TextEditorView: UIViewRepresentable {
         private func scrollToKeepCursorVisible(in textView: UITextView) {
             guard let selectedRange = textView.selectedTextRange else { return }
 
-            // Get cursor position rect
-            var cursorRect = textView.caretRect(for: selectedRange.start)
+            let cursorRect = textView.caretRect(for: selectedRange.start)
 
-            // Add padding above and below the cursor
-            cursorRect.origin.y -= Theme.cursorScrollPadding         // Move rect up to add padding above
-            cursorRect.size.height += Theme.cursorScrollPadding * 2  // Extend height for padding both above and below
-
-            // Find the parent UIScrollView
             guard let scrollView = findParentScrollView(from: textView) else {
-                // Fallback to default behavior if we can't find scroll view
                 textView.scrollRangeToVisible(textView.selectedRange)
                 return
             }
 
-            // Convert cursor rect to scroll view's coordinate space
-            let rectInScrollView = textView.convert(cursorRect, to: scrollView)
+            let cursorInScroll = textView.convert(cursorRect, to: scrollView)
+            let visible = scrollView.bounds.inset(by: scrollView.adjustedContentInset)
 
-            // Scroll to make the padded rect visible
-            scrollView.scrollRectToVisible(rectInScrollView, animated: true)
+            // Skip when the caret itself is already within the visible area — the
+            // padded rect used below always extends beyond the cursor, so without
+            // this check every line-wrap nudges the scroll view by a few points.
+            if visible.contains(CGPoint(x: cursorInScroll.midX, y: cursorInScroll.minY))
+                && visible.contains(CGPoint(x: cursorInScroll.midX, y: cursorInScroll.maxY)) {
+                return
+            }
+
+            var paddedRect = cursorRect
+            paddedRect.origin.y -= Theme.cursorScrollPadding
+            paddedRect.size.height += Theme.cursorScrollPadding * 2
+            let paddedInScroll = textView.convert(paddedRect, to: scrollView)
+            scrollView.scrollRectToVisible(paddedInScroll, animated: true)
         }
 
         func scrollToRange(_ range: NSRange, in textView: UITextView, retrying: Bool = false) {
