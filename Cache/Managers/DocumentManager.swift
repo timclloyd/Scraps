@@ -759,13 +759,19 @@ class DocumentManager: ObservableObject {
     // Shared focus setter for UI callbacks (editor focus, preview tap). Writes to
     // UserDefaults only once initialisation completes so an early focus event during
     // load doesn't overwrite the persisted last-focused filename.
-    func setFocusedScrap(id: String, filename: String) {
+    func setFocusedScrap(id: String, filename: String, tapLocation: CGPoint? = nil) {
+        pendingFocusTapLocation = tapLocation
         focusedScrapID = id
         focusedScrapFilename = filename
         if isReady {
             UserDefaults.standard.set(filename, forKey: "lastFocusedScrapFilename")
         }
     }
+
+    // Tap point in the preview card's local coordinate space, consumed once the
+    // editor takes first responder so the caret lands where the user tapped rather
+    // than at the end of the scrap. Transient — cleared after use.
+    var pendingFocusTapLocation: CGPoint?
 
     private func handleDocumentStateChanged(_ notification: Notification) {
         guard let document = notification.object as? TextDocument else { return }

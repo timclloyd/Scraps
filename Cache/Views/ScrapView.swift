@@ -33,8 +33,19 @@ struct ScrapView: View {
                 documentManager.setFocusedScrap(id: scrapID, filename: scrap.filename)
             },
             searchQuery: searchQuery,
-            activeSearchRange: activeSearchRange
+            activeSearchRange: activeSearchRange,
+            initialTapLocation: consumePendingTapLocation()
         )
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // Consumes the pending tap point (set by `ScrapPreviewView.onTapGesture`) if it
+    // belongs to this scrap, so re-evaluations of `ScrapView.body` don't replay the
+    // same caret placement on every SwiftUI update.
+    private func consumePendingTapLocation() -> CGPoint? {
+        guard documentManager.focusedScrapID == scrap.id,
+              let point = documentManager.pendingFocusTapLocation else { return nil }
+        documentManager.pendingFocusTapLocation = nil
+        return point
     }
 }

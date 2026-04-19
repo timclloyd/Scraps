@@ -24,6 +24,11 @@ struct TextEditorView: UIViewRepresentable {
     var onBecomeFocused: ((String) -> Void)?
     var searchQuery: String = ""
     var activeSearchRange: NSRange? = nil
+    // Optional tap point (in the text view's local coordinate space) captured from
+    // the archive preview. When present, the caret is placed at the closest
+    // character position on first-responder acquisition instead of defaulting to
+    // the end of the text. Cleared after use by the caller.
+    var initialTapLocation: CGPoint? = nil
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: EnhancedTextView, context: Context) -> CGSize? {
         // Tell SwiftUI to use the proposed width but let height grow based on content
@@ -101,9 +106,14 @@ struct TextEditorView: UIViewRepresentable {
         // No delay needed - proper sequencing ensures scroll completes before focus
         if isInitialFocus && !context.coordinator.hasFocused && !uiView.isFirstResponder {
             context.coordinator.hasFocused = true
+            let pendingTap = initialTapLocation
             DispatchQueue.main.async {
                 guard uiView.superview != nil else { return }
                 uiView.becomeFirstResponder()
+                if let point = pendingTap,
+                   let position = uiView.closestPosition(to: point) {
+                    uiView.selectedTextRange = uiView.textRange(from: position, to: position)
+                }
             }
         }
     }
