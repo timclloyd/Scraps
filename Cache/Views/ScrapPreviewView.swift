@@ -12,9 +12,11 @@
 //  and search matches. Tapping the preview promotes the card back to the full editor
 //  by setting `focusedScrapID`.
 //
-//  URL tap-to-open is intentionally not wired up on the preview — a tap focuses
-//  the card, after which the real editor handles link interaction. This keeps the
-//  preview cheap.
+//  URL links are rendered via `.link` attributes on the `AttributedString`; SwiftUI
+//  routes taps on those ranges to the `openURL` environment before the outer tap
+//  gesture sees them. Non-link taps focus the card and carry the tap location
+//  through `DocumentManager.pendingFocusTapLocation` so the editor's caret lands
+//  where the user tapped.
 
 import SwiftUI
 
@@ -37,8 +39,8 @@ struct ScrapPreviewView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
-        .onTapGesture {
-            documentManager.setFocusedScrap(id: scrap.id, filename: scrap.filename)
+        .onTapGesture(coordinateSpace: .local) { location in
+            documentManager.setFocusedScrap(id: scrap.id, filename: scrap.filename, tapLocation: location)
         }
     }
 
@@ -73,6 +75,17 @@ struct ScrapPreviewView: View {
             guard let matchRange = match?.range else { return }
             result.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: matchRange)
             result.addAttribute(.foregroundColor, value: UIColor.systemGray3, range: matchRange)
+        }
+
+        // Match the editor's link styling (set on UITextView via `linkTextAttributes`)
+        // so the preview is visually identical. SwiftUI's `Text` dispatches taps on
+        // `.link` ranges to the `openURL` environment without consuming the outer
+        // gesture for non-link regions.
+        HighlightPatterns.urlDetector?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
+            guard let match, let url = match.url else { return }
+            result.addAttribute(.link, value: url, range: match.range)
+            result.addAttribute(.foregroundColor, value: Theme.linkColor, range: match.range)
+            result.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: match.range)
         }
 
         if !searchQuery.isEmpty {

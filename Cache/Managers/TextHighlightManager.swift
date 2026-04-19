@@ -42,12 +42,13 @@ enum HighlightPatterns {
     static let keywordHighlightColor: UIColor = UIColor { traits in
         Theme.highlightColor(for: traits)
     }
+
+    static let urlDetector: NSDataDetector? = {
+        try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    }()
 }
 
 class TextHighlightManager: NSLayoutManager {
-    private static let urlDetector: NSDataDetector? = {
-        try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-    }()
 
     var normalFont: UIFont?
 
@@ -106,7 +107,7 @@ class TextHighlightManager: NSLayoutManager {
 
         // Detect URLs and make them tappable
         // Only add .link attribute - UITextView handles styling via linkTextAttributes
-        if let urlDetector = Self.urlDetector {
+        if let urlDetector = HighlightPatterns.urlDetector {
             urlDetector.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
                 guard let match, match.range.upperBound <= storageLength, let url = match.url else { return }
                 textStorage.addAttribute(.link, value: url, range: match.range)
