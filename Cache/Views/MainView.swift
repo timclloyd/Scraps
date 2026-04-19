@@ -108,7 +108,6 @@ struct MainView: View {
                     .allowsHitTesting(false)
                 }
                 .padding(.top, viewMode == .search ? 44 : 0)
-                .animation(Theme.navigationOut, value: viewMode == .search)
                 .background(Theme.archiveBackground)
 
                 // Search bar — sits at the ZStack's safe-area top, i.e. directly below the toolbar
@@ -122,9 +121,9 @@ struct MainView: View {
                             onNext: nextMatch,
                             onDismiss: toggleSearch
                         )
+                        .transition(.move(edge: .top).combined(with: .opacity))
                         Spacer()
                     }
-                    .transition(.opacity)
                 }
 
                 // Toolbar — higher z-order so it always wins hit tests, extends into status bar
@@ -150,9 +149,10 @@ struct MainView: View {
         }
         .onChange(of: documentManager.focusedScrapID) { _, _ in
             guard viewMode == .search else { return }
-            clearSearch()
             withAnimation(Theme.navigationOut) {
                 viewMode = .archive
+            } completion: {
+                clearSearch()
             }
         }
     }
@@ -223,17 +223,19 @@ struct MainView: View {
     private func toggleSearch() {
         switch viewMode {
         case .search:
-            clearSearch()
             dismissKeyboard()
 
             if priorMode == .archive {
                 withAnimation(Theme.navigationOut) {
                     viewMode = .archive
+                } completion: {
+                    clearSearch()
                 }
             } else {
-                withAnimation(Theme.navigationOut) {
+                withAnimation(Theme.navigationIn) {
                     viewMode = .latest
                 } completion: {
+                    clearSearch()
                     documentManager.focusLatestScrap()
                 }
             }

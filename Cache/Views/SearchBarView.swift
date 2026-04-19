@@ -41,6 +41,7 @@ struct SearchBarView: View {
                     .foregroundColor(.secondary)
                     .lineLimit(1)
                     .fixedSize()
+                    .transition(.opacity)
 
                 HStack(spacing: 0) {
                     Button(action: onPrev) {
@@ -61,8 +62,10 @@ struct SearchBarView: View {
                     .disabled(matchCount <= 1)
                     .buttonStyle(.plain)
                 }
+                .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.15), value: query.isEmpty)
         .frame(height: 44)
         .padding(.horizontal, Theme.horizontalPadding)
         .background(Theme.archiveBackground)
