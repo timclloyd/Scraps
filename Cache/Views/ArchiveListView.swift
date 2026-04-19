@@ -48,10 +48,14 @@ struct ArchiveListView: View {
                 .frame(height: Theme.topFadeHeight)
                 .allowsHitTesting(false)
             }
+            // Cross-scrap scroll: ScrollViewReader gets us to the target card
+            // (and materialises it from the LazyVStack if off-screen). The
+            // preview's own scrollRectToVisible then refines to the exact
+            // match rect. Intra-scrap navigation relies solely on the latter.
             .onChange(of: activeMatchScrapID) { _, id in
                 guard let id else { return }
-                withAnimation(.none) {
-                    proxy.scrollTo(id)
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    proxy.scrollTo(id, anchor: .top)
                 }
             }
         }

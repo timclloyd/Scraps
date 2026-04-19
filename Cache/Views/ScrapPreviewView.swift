@@ -83,6 +83,15 @@ struct ScrapPreviewView: UIViewRepresentable {
         if uiView.font != font {
             uiView.font = font
         }
+
+        if activeSearchRange != context.coordinator.lastActiveSearchRange {
+            context.coordinator.lastActiveSearchRange = activeSearchRange
+            if let range = activeSearchRange {
+                DispatchQueue.main.async {
+                    context.coordinator.scrollToRange(range, in: uiView)
+                }
+            }
+        }
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: PreviewTextView, context: Context) -> CGSize? {
@@ -97,8 +106,37 @@ struct ScrapPreviewView: UIViewRepresentable {
     final class Coordinator: NSObject {
         var parent: ScrapPreviewView
         weak var textView: PreviewTextView?
+        var lastActiveSearchRange: NSRange?
 
         init(_ parent: ScrapPreviewView) { self.parent = parent }
+
+        func scrollToRange(_ range: NSRange, in textView: UITextView, retrying: Bool = false) {
+            let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            guard glyphRange.location != NSNotFound else { return }
+            var rect = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
+            rect = rect.insetBy(dx: -8, dy: 0)
+            rect.origin.y -= Theme.topFadeHeight
+            rect.size.height += Theme.topFadeHeight + Theme.cursorScrollPadding
+            guard let scrollView = findParentScrollView(from: textView) else {
+                guard !retrying else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self, weak textView] in
+                    guard let textView else { return }
+                    self?.scrollToRange(range, in: textView, retrying: true)
+                }
+                return
+            }
+            let rectInScrollView = textView.convert(rect, to: scrollView)
+            scrollView.scrollRectToVisible(rectInScrollView, animated: true)
+        }
+
+        private func findParentScrollView(from view: UIView) -> UIScrollView? {
+            var current: UIView? = view.superview
+            while let v = current {
+                if let sv = v as? UIScrollView { return sv }
+                current = v.superview
+            }
+            return nil
+        }
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
             guard let textView = textView else { return }

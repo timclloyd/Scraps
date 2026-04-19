@@ -12,12 +12,12 @@ enum Theme {
     //MARK: Animation
     
     static let navigationIn = Animation.spring(
-        response: 0.333,
+        response: 0.3,
         dampingFraction: 1.0
     )
 
     static let navigationOut = Animation.easeIn(
-        duration: 0.333
+        duration: 0.3
     )
 
     //MARK: Fonts
