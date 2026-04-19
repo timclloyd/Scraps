@@ -102,17 +102,29 @@ struct TextEditorView: UIViewRepresentable {
             context.coordinator.hasFocused = false
         }
 
-        // Auto-focus only if this is marked for initial focus and hasn't focused yet
-        // No delay needed - proper sequencing ensures scroll completes before focus
+        // Auto-focus only if this is marked for initial focus and hasn't focused yet.
+        // When the view is already in a window we call becomeFirstResponder synchronously
+        // so the acquisition races the prior responder's resign — async defers B's
+        // acquisition past A's resign, which drops the keyboard mid-transition when
+        // switching focus between archive cards. On the very first mount the view may
+        // not yet be in a window; fall back to async in that case.
         if isInitialFocus && !context.coordinator.hasFocused && !uiView.isFirstResponder {
             context.coordinator.hasFocused = true
             let pendingTap = initialTapLocation
-            DispatchQueue.main.async {
-                guard uiView.superview != nil else { return }
-                uiView.becomeFirstResponder()
+            let applyCaret = {
                 if let point = pendingTap,
                    let position = uiView.closestPosition(to: point) {
                     uiView.selectedTextRange = uiView.textRange(from: position, to: position)
+                }
+            }
+            if uiView.window != nil {
+                uiView.becomeFirstResponder()
+                applyCaret()
+            } else {
+                DispatchQueue.main.async {
+                    guard uiView.window != nil else { return }
+                    uiView.becomeFirstResponder()
+                    applyCaret()
                 }
             }
         }
