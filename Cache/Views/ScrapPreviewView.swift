@@ -16,6 +16,15 @@
 //  re-wrap every time a card gained or lost focus. Sharing the TextKit stack
 //  guarantees pixel-identical wrapping with the editing view.
 //
+//  Why the UITextView is wrapped in a plain UIView with touches disabled on the
+//  inner text view: even with `isSelectable=false` and `canBecomeFirstResponder=false`,
+//  a tap landing on a UITextView triggers enough of its internal gesture stack
+//  to resign the current first responder (the archive card the user is switching
+//  away from), which drops the keyboard mid-animation on the first switch after
+//  a cold launch. Making the UITextView non-interactive and mounting the tap
+//  recogniser on the outer container keeps UITextView out of the touch path
+//  entirely.
+//
 //  Tap handling: plain taps promote the card to the full editor and carry the
 //  tap location through `DocumentManager.pendingFocusTapLocation` so the editor's
 //  caret lands where the user tapped. Taps that land on a `.link` attribute open
@@ -32,7 +41,7 @@ struct ScrapPreviewView: UIViewRepresentable {
 
     @EnvironmentObject var documentManager: DocumentManager
 
-    func makeUIView(context: Context) -> PreviewTextView {
+    func makeUIView(context: Context) -> PreviewContainerView {
         let layoutManager = TextHighlightManager()
         layoutManager.normalFont = font
         let textContainer = NSTextContainer(size: .zero)
@@ -41,10 +50,11 @@ struct ScrapPreviewView: UIViewRepresentable {
         textStorage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(textContainer)
 
-        let textView = PreviewTextView(frame: .zero, textContainer: textContainer)
+        let textView = UITextView(frame: .zero, textContainer: textContainer)
         textView.isEditable = false
         textView.isSelectable = false
         textView.isScrollEnabled = false
+        textView.isUserInteractionEnabled = false
         textView.backgroundColor = .clear
         textView.font = font
         textView.textContainerInset = .zero
@@ -53,12 +63,13 @@ struct ScrapPreviewView: UIViewRepresentable {
             .foregroundColor: Theme.linkColor,
             .underlineStyle: NSUnderlineStyle.single.rawValue
         ]
+        textView.translatesAutoresizingMaskIntoConstraints = false
 
+        let container = PreviewContainerView(textView: textView)
         let tap = UITapGestureRecognizer(target: context.coordinator,
                                          action: #selector(Coordinator.handleTap(_:)))
-        tap.cancelsTouchesInView = true
-        textView.addGestureRecognizer(tap)
-        context.coordinator.textView = textView
+        container.addGestureRecognizer(tap)
+        context.coordinator.container = container
 
         textView.text = document.text
         if let lm = textView.textStorage.layoutManagers.first as? TextHighlightManager {
@@ -66,28 +77,29 @@ struct ScrapPreviewView: UIViewRepresentable {
             lm.activeSearchRange = activeSearchRange
         }
 
-        return textView
+        return container
     }
 
-    func updateUIView(_ uiView: PreviewTextView, context: Context) {
+    func updateUIView(_ uiView: PreviewContainerView, context: Context) {
         context.coordinator.parent = self
 
-        if uiView.text != document.text {
-            uiView.text = document.text
+        let textView = uiView.textView
+        if textView.text != document.text {
+            textView.text = document.text
         }
-        if let lm = uiView.textStorage.layoutManagers.first as? TextHighlightManager {
+        if let lm = textView.textStorage.layoutManagers.first as? TextHighlightManager {
             lm.normalFont = font
             lm.searchQuery = searchQuery
             lm.activeSearchRange = activeSearchRange
         }
-        if uiView.font != font {
-            uiView.font = font
+        if textView.font != font {
+            textView.font = font
         }
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: PreviewTextView, context: Context) -> CGSize? {
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: PreviewContainerView, context: Context) -> CGSize? {
         guard let width = proposal.width else { return nil }
-        let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        let size = uiView.textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         return CGSize(width: width, height: size.height)
     }
 
@@ -96,15 +108,15 @@ struct ScrapPreviewView: UIViewRepresentable {
     @MainActor
     final class Coordinator: NSObject {
         var parent: ScrapPreviewView
-        weak var textView: PreviewTextView?
+        weak var container: PreviewContainerView?
 
         init(_ parent: ScrapPreviewView) { self.parent = parent }
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
-            guard let textView = textView else { return }
-            let point = recognizer.location(in: textView)
+            guard let container = container else { return }
+            let point = recognizer.location(in: container.textView)
 
-            if let url = url(at: point, in: textView) {
+            if let url = url(at: point, in: container.textView) {
                 UIApplication.shared.open(url)
                 return
             }
@@ -139,9 +151,22 @@ struct ScrapPreviewView: UIViewRepresentable {
     }
 }
 
-// Subclass exists so UIViewRepresentable's generic argument is concrete and so we
-// can opt out of UITextView's default first-responder behaviour — the preview
-// should never steal focus or show a caret.
-final class PreviewTextView: UITextView {
-    override var canBecomeFirstResponder: Bool { false }
+// Plain container so the outer tap recogniser owns the touch and UITextView's
+// internal gesture stack never sees it. See file header for why that matters.
+final class PreviewContainerView: UIView {
+    let textView: UITextView
+
+    init(textView: UITextView) {
+        self.textView = textView
+        super.init(frame: .zero)
+        addSubview(textView)
+        NSLayoutConstraint.activate([
+            textView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            textView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            textView.topAnchor.constraint(equalTo: topAnchor),
+            textView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
