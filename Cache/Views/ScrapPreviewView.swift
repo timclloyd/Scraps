@@ -7,20 +7,23 @@
 //  A full `TextEditorView` (UITextView + NSLayoutManager + regex compilation +
 //  autocorrect + gesture recognisers) per archive card is expensive to instantiate
 //  and lay out — this caused visible scroll hitches on long scraps. This view
-//  replaces the editor for non-focused cards with a SwiftUI `Text` rendering an
-//  `AttributedString` pre-decorated with the same keyword highlights, strikethrough,
-//  and search matches. Tapping the preview promotes the card back to the full editor
-//  by setting `focusedScrapID`.
+//  replaces the editor for non-focused cards with a cheap read-only UITextView
+//  that reuses the same `TextHighlightManager`, text-container insets, and font.
 //
-//  URL links are rendered via `.link` attributes on the `AttributedString`; SwiftUI
-//  routes taps on those ranges to the `openURL` environment before the outer tap
-//  gesture sees them. Non-link taps focus the card and carry the tap location
-//  through `DocumentManager.pendingFocusTapLocation` so the editor's caret lands
-//  where the user tapped.
+//  Why UITextView rather than SwiftUI `Text`: SwiftUI `Text` and UITextView use
+//  different layout engines (Core Text vs TextKit 1), so a glyph that wraps at
+//  column N in one can fit at column N in the other. That caused a visible line
+//  re-wrap every time a card gained or lost focus. Sharing the TextKit stack
+//  guarantees pixel-identical wrapping with the editing view.
+//
+//  Tap handling: plain taps promote the card to the full editor and carry the
+//  tap location through `DocumentManager.pendingFocusTapLocation` so the editor's
+//  caret lands where the user tapped. Taps that land on a `.link` attribute open
+//  the URL directly without promoting.
 
 import SwiftUI
 
-struct ScrapPreviewView: View {
+struct ScrapPreviewView: UIViewRepresentable {
     let scrap: Scrap
     @ObservedObject var document: TextDocument
     let font: UIFont
@@ -29,79 +32,116 @@ struct ScrapPreviewView: View {
 
     @EnvironmentObject var documentManager: DocumentManager
 
-    var body: some View {
-        Text(AttributedString(Self.buildAttributedString(
-            text: document.text,
-            font: font,
-            searchQuery: searchQuery,
-            activeSearchRange: activeSearchRange
-        )))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .fixedSize(horizontal: false, vertical: true)
-        .contentShape(Rectangle())
-        .onTapGesture(coordinateSpace: .local) { location in
-            documentManager.setFocusedScrap(id: scrap.id, filename: scrap.filename, tapLocation: location)
+    func makeUIView(context: Context) -> PreviewTextView {
+        let layoutManager = TextHighlightManager()
+        layoutManager.normalFont = font
+        let textContainer = NSTextContainer(size: .zero)
+        textContainer.widthTracksTextView = true
+        let textStorage = NSTextStorage()
+        textStorage.addLayoutManager(layoutManager)
+        layoutManager.addTextContainer(textContainer)
+
+        let textView = PreviewTextView(frame: .zero, textContainer: textContainer)
+        textView.isEditable = false
+        textView.isSelectable = false
+        textView.isScrollEnabled = false
+        textView.backgroundColor = .clear
+        textView.font = font
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
+        textView.linkTextAttributes = [
+            .foregroundColor: Theme.linkColor,
+            .underlineStyle: NSUnderlineStyle.single.rawValue
+        ]
+
+        let tap = UITapGestureRecognizer(target: context.coordinator,
+                                         action: #selector(Coordinator.handleTap(_:)))
+        tap.cancelsTouchesInView = true
+        textView.addGestureRecognizer(tap)
+        context.coordinator.textView = textView
+
+        textView.text = document.text
+        if let lm = textView.textStorage.layoutManagers.first as? TextHighlightManager {
+            lm.searchQuery = searchQuery
+            lm.activeSearchRange = activeSearchRange
+        }
+
+        return textView
+    }
+
+    func updateUIView(_ uiView: PreviewTextView, context: Context) {
+        context.coordinator.parent = self
+
+        if uiView.text != document.text {
+            uiView.text = document.text
+        }
+        if let lm = uiView.textStorage.layoutManagers.first as? TextHighlightManager {
+            lm.normalFont = font
+            lm.searchQuery = searchQuery
+            lm.activeSearchRange = activeSearchRange
+        }
+        if uiView.font != font {
+            uiView.font = font
         }
     }
 
-    // MARK: - Attributed-string builder
-    //
-    // Mirrors the attribute set applied by `TextHighlightManager.processEditing`
-    // so the preview is pixel-equivalent to the editor at rest. Patterns live on
-    // `HighlightPatterns` (in `TextHighlightManager.swift`) and are shared across
-    // both paths.
-
-    private static func buildAttributedString(
-        text: String,
-        font: UIFont,
-        searchQuery: String,
-        activeSearchRange: NSRange?
-    ) -> NSAttributedString {
-        let result = NSMutableAttributedString(string: text, attributes: [
-            .font: font,
-            .foregroundColor: UIColor.label
-        ])
-        let fullRange = NSRange(location: 0, length: (text as NSString).length)
-        guard fullRange.length > 0 else { return result }
-
-        for regex in HighlightPatterns.keywordRegexes {
-            regex.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
-                guard let range = match?.range else { return }
-                result.addAttribute(.backgroundColor, value: HighlightPatterns.keywordHighlightColor, range: range)
-            }
-        }
-
-        HighlightPatterns.strikeRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
-            guard let matchRange = match?.range else { return }
-            result.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: matchRange)
-            result.addAttribute(.foregroundColor, value: UIColor.systemGray3, range: matchRange)
-        }
-
-        // Match the editor's link styling (set on UITextView via `linkTextAttributes`)
-        // so the preview is visually identical. SwiftUI's `Text` dispatches taps on
-        // `.link` ranges to the `openURL` environment without consuming the outer
-        // gesture for non-link regions.
-        HighlightPatterns.urlDetector?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
-            guard let match, let url = match.url else { return }
-            result.addAttribute(.link, value: url, range: match.range)
-            result.addAttribute(.foregroundColor, value: Theme.linkColor, range: match.range)
-            result.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: match.range)
-        }
-
-        if !searchQuery.isEmpty {
-            let ns = text as NSString
-            var cursor = NSRange(location: 0, length: fullRange.length)
-            while cursor.length > 0 {
-                let match = ns.range(of: searchQuery, options: .caseInsensitive, range: cursor)
-                guard match.location != NSNotFound else { break }
-                let isActive = activeSearchRange.map { $0.location == match.location && $0.length == match.length } ?? false
-                let colour = isActive ? Theme.searchActiveHighlightColor : Theme.searchHighlightColor
-                result.addAttribute(.backgroundColor, value: colour, range: match)
-                let next = match.upperBound
-                cursor = NSRange(location: next, length: fullRange.length - next)
-            }
-        }
-
-        return result
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: PreviewTextView, context: Context) -> CGSize? {
+        guard let width = proposal.width else { return nil }
+        let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: size.height)
     }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var parent: ScrapPreviewView
+        weak var textView: PreviewTextView?
+
+        init(_ parent: ScrapPreviewView) { self.parent = parent }
+
+        @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
+            guard let textView = textView else { return }
+            let point = recognizer.location(in: textView)
+
+            if let url = url(at: point, in: textView) {
+                UIApplication.shared.open(url)
+                return
+            }
+
+            parent.documentManager.setFocusedScrap(
+                id: parent.scrap.id,
+                filename: parent.scrap.filename,
+                tapLocation: point
+            )
+        }
+
+        // Link hit-testing: map the tap point to a character index and check for
+        // a `.link` attribute. Uses the layout manager's glyph-fraction so taps
+        // past the end of a line don't spuriously hit the first character of the
+        // next line.
+        private func url(at point: CGPoint, in textView: UITextView) -> URL? {
+            guard textView.textStorage.length > 0 else { return nil }
+            let layoutManager = textView.layoutManager
+            let container = textView.textContainer
+            var fraction: CGFloat = 0
+            let glyphIndex = layoutManager.glyphIndex(for: point,
+                                                     in: container,
+                                                     fractionOfDistanceThroughGlyph: &fraction)
+            guard glyphIndex < layoutManager.numberOfGlyphs, fraction < 1.0 else { return nil }
+            let charIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
+            guard charIndex < textView.textStorage.length else { return nil }
+            let value = textView.textStorage.attribute(.link, at: charIndex, effectiveRange: nil)
+            if let url = value as? URL { return url }
+            if let string = value as? String { return URL(string: string) }
+            return nil
+        }
+    }
+}
+
+// Subclass exists so UIViewRepresentable's generic argument is concrete and so we
+// can opt out of UITextView's default first-responder behaviour — the preview
+// should never steal focus or show a caret.
+final class PreviewTextView: UITextView {
+    override var canBecomeFirstResponder: Bool { false }
 }
