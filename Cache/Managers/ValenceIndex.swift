@@ -69,12 +69,13 @@ final class ValenceIndex: ObservableObject {
     private static func computeHits(in text: String) -> [ValenceHit] {
         guard !text.isEmpty else { return [] }
         let range = NSRange(location: 0, length: (text as NSString).length)
-        var result: [ValenceHit] = []
+        var located: [(location: Int, band: ValenceBand)] = []
         for keyword in valenceKeywords {
-            keyword.regex.enumerateMatches(in: text, options: [], range: range) { _, _, _ in
-                result.append(ValenceHit(band: keyword.band))
+            keyword.regex.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
+                guard let match else { return }
+                located.append((location: match.range.location, band: keyword.band))
             }
         }
-        return result
+        return located.sorted { $0.location < $1.location }.map { ValenceHit(band: $0.band) }
     }
 }
