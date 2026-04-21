@@ -128,6 +128,25 @@ enum Theme {
         }
     }
     
+    //MARK: Valence minimap
+
+    /// Visible width of the coloured strip. Drives the archive's trailing
+    /// content inset so text isn't squeezed by the tap-extension below.
+    static var minimapWidth: CGFloat { isIPhone ? 12 : 12 }
+
+    /// Total width of the minimap's tap target. Exceeds `minimapWidth` so the
+    /// strip is easy to hit with a fingertip without stealing text real estate.
+    /// The extra width overlaps the scrap's right-side padding, not its glyphs.
+    static var minimapTapWidth: CGFloat { isIPhone ? 20 : 28 }
+
+    static func minimapColor(for band: ValenceBand) -> Color {
+        switch band {
+        case .positive: return Color(.systemGreen).opacity(0.75)
+        case .negative: return Color(.systemRed).opacity(0.75)
+        case .neutral:  return Color(.systemBlue).opacity(0.75)
+        }
+    }
+
     //MARK: Platform detection
     static var isIPhone: Bool {
         #if os(iOS)

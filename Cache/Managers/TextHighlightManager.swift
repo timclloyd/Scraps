@@ -7,41 +7,76 @@
 
 import SwiftUI
 
-// Shared regex set and colour used by both the live editor (`TextHighlightManager`)
-// and the read-only archive preview (`ScrapPreviewView`). Kept here as a top-level
-// enum so the preview can re-use the identical patterns without duplicating them
-// and without adding a new file (which would require pbxproj edits).
+// Shared keyword patterns and per-band highlight colours used by both the live
+// editor (`TextHighlightManager`) and the read-only archive preview (`ScrapPreviewView`).
+// Kept here as a top-level enum so the preview reuses identical patterns without
+// duplicating them and without adding a new file (which would require pbxproj edits).
+enum ValenceBand {
+    case positive
+    case negative
+    case neutral
+}
+
+struct HighlightKeyword {
+    let pattern: String
+    let regex: NSRegularExpression
+    let band: ValenceBand
+}
+
 enum HighlightPatterns {
     // Keywords to highlight for quick visual scanning. Patterns use word boundaries (\b)
     // to avoid partial matches. Compiled once at load — previously each instance of
     // TextHighlightManager (one per visible archive card) re-compiled all 7 regexes.
-    static let keywordRegexes: [NSRegularExpression] = {
-        let rawPatterns = [
-            "\\bidea[a-zA-Z]*",     // "idea", "ideas", etc.
-            "\\bfun\\b",
-            "\\btodo\\b",
-            "\\bremember\\b",
-            "\\bimportant\\b",
-            "\\binteresting\\b",
-            "\\blater\\b"
+    //
+    // Valence bands:
+    //   positive — contribute to minimap as Theme.minimapPositiveColor
+    //   negative — contribute to minimap as Theme.minimapNegativeColor
+    //   neutral  — cognitive markers; editor highlight only, silent in minimap
+    static let keywords: [HighlightKeyword] = {
+        let specs: [(String, ValenceBand)] = [
+//            ("\\bfun\\b",        .positive),
+//            ("\\bgreat\\b",      .positive),
+//            ("\\bgrateful\\b",   .positive),
+//            ("\\blove\\b",       .positive),
+//            ("\\bhappy\\b",      .positive),
+//            ("\\bexcited\\b",    .positive),
+            ("\\bidea[a-zA-Z]*", .positive),
+            
+//            ("\\bsad\\b",        .negative),
+//            ("\\banxious\\b",    .negative),
+//            ("\\banxiety\\b",    .negative),
+//            ("\\bangry\\b",      .negative),
+//            ("\\bstress(ed)?\\b",   .negative),
+//            ("\\bfuck(ing)?\\b", .negative),
+            
+            ("\\bimportant\\b",  .negative),
+            
+            ("\\btodo\\b",       .neutral),
+            ("\\bremember\\b",   .neutral),
         ]
-        return rawPatterns.compactMap {
-            try? NSRegularExpression(pattern: $0, options: .caseInsensitive)
+        return specs.compactMap { pattern, band in
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
+            return HighlightKeyword(pattern: pattern, regex: regex, band: band)
         }
     }()
+
+    // Per-band dynamic UIColors. Created once; UIKit resolves the trait closure
+    // against the real text-view environment at draw time.
+    static let highlightColor: [ValenceBand: UIColor] = [
+        .positive: UIColor { traits in
+            UIColor.systemGreen.withAlphaComponent(traits.userInterfaceStyle == .dark ? 0.4 : 0.22)
+        },
+        .negative: UIColor { traits in
+            UIColor.systemRed.withAlphaComponent(traits.userInterfaceStyle == .dark ? 0.4 : 0.22)
+        },
+        .neutral: UIColor { traits in
+            UIColor.systemBlue.withAlphaComponent(traits.userInterfaceStyle == .dark ? 0.4 : 0.22)
+        },
+    ]
 
     static let strikeRegex: NSRegularExpression? = {
         try? NSRegularExpression(pattern: "~~.+?~~")
     }()
-
-    // Dynamic UIColor so UIKit resolves against the real text-view trait environment
-    // at draw time. Previously we called Theme.highlightColor(for: UITraitCollection.current)
-    // inside processEditing, but .current is only guaranteed correct inside specific
-    // UIKit callbacks — this pattern is robust across any invocation context and avoids
-    // a per-keystroke resolution call.
-    static let keywordHighlightColor: UIColor = UIColor { traits in
-        Theme.highlightColor(for: traits)
-    }
 
     static let urlDetector: NSDataDetector? = {
         try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
@@ -96,12 +131,11 @@ class TextHighlightManager: NSLayoutManager {
         // block — addAttribute does not change length — so caching it is safe.
         let storageLength = textStorage.length
 
-        // Apply keyword highlighting. keywordHighlightColor is a dynamic UIColor;
-        // UIKit resolves it against the text view's real trait collection at draw time.
-        for regex in HighlightPatterns.keywordRegexes {
-            regex.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
+        for keyword in HighlightPatterns.keywords {
+            guard let color = HighlightPatterns.highlightColor[keyword.band] else { continue }
+            keyword.regex.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
                 guard let range = match?.range, range.upperBound <= storageLength else { return }
-                textStorage.addAttribute(.backgroundColor, value: HighlightPatterns.keywordHighlightColor, range: range)
+                textStorage.addAttribute(.backgroundColor, value: color, range: range)
             }
         }
 
