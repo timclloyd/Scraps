@@ -10,6 +10,7 @@
 //    - Each scrap gets an equal vertical slice (newest at top, oldest at bottom).
 //    - A scrap with valence hits → Canvas draws one coloured rect per distinct
 //      band. At most three segments (positive / negative / neutral).
+//    - Opacity encodes hit count: 1 hit → 0.2, 5+ hits → 0.6.
 //    - A scrap with no hits → empty slice.
 //    - Every slice is a direct tap/scrub target — no empty days between rows.
 //
@@ -19,9 +20,14 @@
 
 import SwiftUI
 
+private struct BandSegment {
+    let band: ValenceBand
+    let opacity: CGFloat
+}
+
 private struct Slice: Identifiable {
     let id: String          // scrap.id — doubles as the scroll target
-    let bands: [ValenceBand]
+    let segments: [BandSegment]
 }
 
 struct ArchiveMinimapView: View {
@@ -46,15 +52,15 @@ struct ArchiveMinimapView: View {
                     guard !slices.isEmpty else { return }
                     let h = size.height / CGFloat(slices.count)
                     for (index, slice) in slices.enumerated() {
-                        guard !slice.bands.isEmpty else { continue }
+                        guard !slice.segments.isEmpty else { continue }
                         let sliceY = CGFloat(index) * h
-                        let segH = h / CGFloat(slice.bands.count)
-                        for (bandIndex, band) in slice.bands.enumerated() {
+                        let segH = h / CGFloat(slice.segments.count)
+                        for (segIndex, segment) in slice.segments.enumerated() {
                             let rect = CGRect(
-                                x: 0, y: sliceY + CGFloat(bandIndex) * segH,
+                                x: 0, y: sliceY + CGFloat(segIndex) * segH,
                                 width: size.width, height: segH
                             )
-                            context.fill(Path(rect), with: .color(Theme.minimapColor(for: band)))
+                            context.fill(Path(rect), with: .color(Theme.minimapColor(for: segment.band).opacity(segment.opacity)))
                         }
                     }
                 }
@@ -86,19 +92,26 @@ struct ArchiveMinimapView: View {
     /// One slice per scrap, newest first. scraps is sorted oldest-first by DocumentManager.
     private func buildSlices() -> [Slice] {
         scraps.reversed().map { scrap in
-            Slice(id: scrap.id, bands: Self.distinctBands(from: hits[scrap.id] ?? []))
+            Slice(id: scrap.id, segments: Self.bandSegments(from: hits[scrap.id] ?? []))
         }
     }
 
-    /// Dedup hits by band, preserving first-seen order. At most three segments per scrap.
-    private static func distinctBands(from hits: [ValenceHit]) -> [ValenceBand] {
-        var seen: Set<ValenceBand> = []
-        var result: [ValenceBand] = []
+    private static let opacityMin: CGFloat = 0.5
+    private static let opacityMax: CGFloat = 1.0
+    private static let opacityCountCap = 4
+
+    /// One segment per distinct band, opacity scaled by hit count (1 hit → 0.2, 5+ hits → 0.6).
+    private static func bandSegments(from hits: [ValenceHit]) -> [BandSegment] {
+        var counts: [ValenceBand: Int] = [:]
+        var order: [ValenceBand] = []
         for hit in hits {
-            if seen.insert(hit.band).inserted {
-                result.append(hit.band)
-            }
+            if counts[hit.band] == nil { order.append(hit.band) }
+            counts[hit.band, default: 0] += 1
         }
-        return result
+        return order.map { band in
+            let count = counts[band] ?? 1
+            let t = min(CGFloat(count - 1) / CGFloat(opacityCountCap - 1), 1.0)
+            return BandSegment(band: band, opacity: opacityMin + t * (opacityMax - opacityMin))
+        }
     }
 }
