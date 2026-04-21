@@ -228,12 +228,14 @@ struct MainView: View {
             if priorMode == .archive {
                 withAnimation(Theme.navigationOut) {
                     viewMode = .archive
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } completion: {
                     clearSearch()
                 }
             } else {
                 withAnimation(Theme.navigationIn) {
                     viewMode = .latest
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } completion: {
                     clearSearch()
                     documentManager.focusLatestScrap()
@@ -243,10 +245,7 @@ struct MainView: View {
         case .latest, .archive:
             priorMode = viewMode
             dismissKeyboard()
-
-            if viewMode == .latest {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
             withAnimation(Theme.navigationIn) {
                 viewMode = .search
