@@ -80,18 +80,18 @@ enum Theme {
     static let searchHighlightColor = UIColor { traitCollection in
         switch traitCollection.userInterfaceStyle {
         case .dark:
-            return UIColor(hue: 23/360, saturation: 0.55, brightness: 0.50, alpha: 1.0)
+            return UIColor.systemYellow.withAlphaComponent(0.2)
         default:
-            return UIColor(hue: 24/360, saturation: 0.30, brightness: 1.0, alpha: 1.0)
+            return UIColor.systemYellow.withAlphaComponent(0.2)
         }
     }
 
     static let searchActiveHighlightColor = UIColor { traitCollection in
         switch traitCollection.userInterfaceStyle {
         case .dark:
-            return UIColor(hue: 23/360, saturation: 0.70, brightness: 0.72, alpha: 1.0)
+            return UIColor.systemYellow.withAlphaComponent(0.5)
         default:
-            return UIColor(hue: 24/360, saturation: 0.58, brightness: 1.0, alpha: 1.0)
+            return UIColor.systemYellow.withAlphaComponent(0.5)
         }
     }
 
@@ -140,11 +140,15 @@ enum Theme {
     static var minimapTapWidth: CGFloat { isIPhone ? 20 : 28 }
 
     static func minimapColor(for band: ValenceBand) -> Color {
+        let base: UIColor
         switch band {
-        case .positive: return Color(.systemGreen).opacity(0.75)
-        case .negative: return Color(.systemRed).opacity(0.75)
-        case .neutral:  return Color(.systemBlue).opacity(0.75)
+        case .positive: base = .systemGreen
+        case .negative: base = .systemRed
+        case .neutral:  base = .systemBlue
         }
+        return Color(UIColor { traits in
+            base.withAlphaComponent(traits.userInterfaceStyle == .dark ? 0.6 : 0.4)
+        })
     }
 
     //MARK: Platform detection
