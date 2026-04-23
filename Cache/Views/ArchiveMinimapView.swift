@@ -10,7 +10,7 @@
 //    - Each scrap gets an equal vertical slice (newest at top, oldest at bottom).
 //    - A scrap with valence hits → Canvas draws one coloured rect per distinct
 //      band. At most three segments (positive / negative / neutral).
-//    - Opacity encodes hit count: 1 hit → 0.2, 5+ hits → 0.6.
+//    - Opacity encodes hit count via Theme.minimapOpacity(forHitCount:colorScheme:).
 //    - A scrap with no hits → empty slice.
 //    - Every slice is a direct tap/scrub target — no empty days between rows.
 //
@@ -31,6 +31,8 @@ private struct Slice: Identifiable {
 }
 
 struct ArchiveMinimapView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let scraps: [Scrap]
     let hits: [String: [ValenceHit]]
     /// Called on tap/drag-release so the archive can animate to the scrap.
@@ -92,16 +94,12 @@ struct ArchiveMinimapView: View {
     /// One slice per scrap, newest first. scraps is sorted oldest-first by DocumentManager.
     private func buildSlices() -> [Slice] {
         scraps.reversed().map { scrap in
-            Slice(id: scrap.id, segments: Self.bandSegments(from: hits[scrap.id] ?? []))
+            Slice(id: scrap.id, segments: bandSegments(from: hits[scrap.id] ?? []))
         }
     }
 
-    private static let opacityMin: CGFloat = 0.5
-    private static let opacityMax: CGFloat = 1.0
-    private static let opacityCountCap = 4
-
-    /// One segment per distinct band, opacity scaled by hit count (1 hit → 0.2, 5+ hits → 0.6).
-    private static func bandSegments(from hits: [ValenceHit]) -> [BandSegment] {
+    /// One segment per distinct band, opacity scaled by hit count in Theme.
+    private func bandSegments(from hits: [ValenceHit]) -> [BandSegment] {
         var counts: [ValenceBand: Int] = [:]
         var order: [ValenceBand] = []
         for hit in hits {
@@ -110,8 +108,10 @@ struct ArchiveMinimapView: View {
         }
         return order.map { band in
             let count = counts[band] ?? 1
-            let t = min(CGFloat(count - 1) / CGFloat(opacityCountCap - 1), 1.0)
-            return BandSegment(band: band, opacity: opacityMin + t * (opacityMax - opacityMin))
+            return BandSegment(
+                band: band,
+                opacity: Theme.minimapOpacity(forHitCount: count, colorScheme: colorScheme)
+            )
         }
     }
 }

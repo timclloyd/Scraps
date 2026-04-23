@@ -29,9 +29,8 @@ enum HighlightPatterns {
     // TextHighlightManager (one per visible archive card) re-compiled all 7 regexes.
     //
     // Valence bands:
-    //   positive — contribute to minimap as Theme.minimapPositiveColor
-    //   negative — contribute to minimap as Theme.minimapNegativeColor
-    //   neutral  — cognitive markers; editor highlight only, silent in minimap
+    //   positive, negative, and neutral all contribute to the archive minimap;
+    //   Theme.minimapColor(for:) maps each band to its strip colour.
     static let keywords: [HighlightKeyword] = {
         let specs: [(String, ValenceBand)] = [
 //            ("\\bfun\\b",        .positive),
@@ -41,16 +40,16 @@ enum HighlightPatterns {
 //            ("\\bhappy\\b",      .positive),
 //            ("\\bexcited\\b",    .positive),
             ("\\bidea[a-zA-Z]*", .positive),
-            
+
 //            ("\\bsad\\b",        .negative),
 //            ("\\banxious\\b",    .negative),
 //            ("\\banxiety\\b",    .negative),
 //            ("\\bangry\\b",      .negative),
 //            ("\\bstress(ed)?\\b",   .negative),
 //            ("\\bfuck(ing)?\\b", .negative),
-            
+
             ("\\bimportant\\b",  .negative),
-            
+
             ("\\btodo\\b",       .neutral),
             ("\\bremember\\b",   .neutral),
         ]

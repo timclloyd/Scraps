@@ -22,6 +22,7 @@ final class ValenceIndex: ObservableObject {
     @Published private(set) var hits: [String: [ValenceHit]] = [:]
 
     private var documentCancellables: [String: AnyCancellable] = [:]
+    private var pendingRecomputeIDs: Set<String> = []
     private var scrapsCancellable: AnyCancellable?
     private weak var documentManager: DocumentManager?
 
@@ -45,6 +46,7 @@ final class ValenceIndex: ObservableObject {
         // Drop cached hits and subscriptions for scraps that no longer exist.
         hits = hits.filter { liveIDs.contains($0.key) }
         documentCancellables = documentCancellables.filter { liveIDs.contains($0.key) }
+        pendingRecomputeIDs.formIntersection(liveIDs)
 
         for scrap in scraps {
             hits[scrap.id] = Self.computeHits(in: scrap.document.text)
@@ -56,13 +58,23 @@ final class ValenceIndex: ObservableObject {
                     .receive(on: DispatchQueue.main)
                     .sink { [weak self, weak document] _ in
                         guard let self, let document else { return }
-                        // objectWillChange fires before the new value is assigned,
-                        // so defer to the next runloop turn to read the updated text.
-                        DispatchQueue.main.async {
-                            self.hits[id] = Self.computeHits(in: document.text)
-                        }
+                        self.scheduleRecompute(id: id, document: document)
                     }
             }
+        }
+    }
+
+    private func scheduleRecompute(id: String, document: TextDocument) {
+        guard pendingRecomputeIDs.insert(id).inserted else { return }
+
+        // objectWillChange fires before the new value is assigned, so defer to
+        // the next runloop turn to read the updated text. The pending set avoids
+        // queuing duplicate full-scrap regex scans while one is already waiting.
+        DispatchQueue.main.async { [weak self, weak document] in
+            guard let self else { return }
+            self.pendingRecomputeIDs.remove(id)
+            guard let document else { return }
+            self.hits[id] = Self.computeHits(in: document.text)
         }
     }
 

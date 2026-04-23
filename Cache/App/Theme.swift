@@ -146,9 +146,17 @@ enum Theme {
         case .negative: base = .systemRed
         case .neutral:  base = .systemBlue
         }
-        return Color(UIColor { traits in
-            base.withAlphaComponent(traits.userInterfaceStyle == .dark ? 0.6 : 0.4)
-        })
+        return Color(base)
+    }
+
+    /// Effective segment opacity for the minimap strip. Keeps all minimap alpha
+    /// tuning in one place: light mode ranges from 0.2 to 0.4; dark mode ranges
+    /// from 0.3 to 0.6.
+    static func minimapOpacity(forHitCount count: Int, colorScheme: ColorScheme) -> CGFloat {
+        let range: (min: CGFloat, max: CGFloat) = colorScheme == .dark ? (0.3, 0.6) : (0.2, 0.4)
+        let countCap: CGFloat = 4
+        let t = min(CGFloat(max(count, 1) - 1) / (countCap - 1), 1.0)
+        return range.min + t * (range.max - range.min)
     }
 
     //MARK: Platform detection
