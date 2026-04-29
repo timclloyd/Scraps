@@ -10,6 +10,7 @@ struct ScrapCardView: View {
     let scrap: Scrap
     let showsSeparator: Bool
     let autoFocus: Bool
+    var focusRequestID: Int = 0
     var topPadding: CGFloat = Theme.textSize
     var cardBackground: Color = .clear
     let editorFont: UIFont
@@ -51,6 +52,7 @@ struct ScrapCardView: View {
                         document: scrap.document,
                         font: editorFont,
                         isInitialFocus: forceEditor ? autoFocus : (autoFocus || isFocused),
+                        focusRequestID: focusRequestID,
                         searchQuery: searchQuery,
                         activeSearchRange: activeSearchRange
                     )

@@ -13,6 +13,7 @@ struct ScrapView: View {
     @ObservedObject var document: TextDocument
     let font: UIFont
     var isInitialFocus: Bool = false
+    var focusRequestID: Int = 0
     var searchQuery: String = ""
     var activeSearchRange: NSRange? = nil
 
@@ -28,6 +29,7 @@ struct ScrapView: View {
             ),
             font: font,
             isInitialFocus: isInitialFocus,
+            focusRequestID: focusRequestID,
             scrapID: scrap.id,
             onBecomeFocused: { scrapID in
                 documentManager.setFocusedScrap(id: scrapID, filename: scrap.filename)

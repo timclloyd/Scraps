@@ -11,6 +11,7 @@ struct LatestScrapPanelView: View {
     let keyboardHeight: CGFloat
     let viewMode: ViewMode
     let editorFont: UIFont
+    let focusRequestID: Int
 
     var body: some View {
         let shape = UnevenRoundedRectangle(
@@ -28,6 +29,7 @@ struct LatestScrapPanelView: View {
                             scrap: latestScrap,
                             showsSeparator: false,
                             autoFocus: latestScrap.id == documentManager.focusedScrapID && viewMode == .latest,
+                            focusRequestID: focusRequestID,
                             topPadding: 18,
                             editorFont: editorFont,
                             forceEditor: true

@@ -20,6 +20,7 @@ struct TextEditorView: UIViewRepresentable {
     @Binding var text: String
     var font: UIFont
     var isInitialFocus: Bool = false
+    var focusRequestID: Int = 0
     var scrapID: String?
     var onBecomeFocused: ((String) -> Void)?
     var searchQuery: String = ""
@@ -66,6 +67,9 @@ struct TextEditorView: UIViewRepresentable {
                 onBecomeFocused?(scrapID)
             }
         }
+        textView.onAttachedToWindow = { [weak coordinator = context.coordinator] in
+            coordinator?.attemptPendingInitialFocus()
+        }
 
         // Store reference in coordinator for keyboard notification
         context.coordinator.textView = textView
@@ -100,20 +104,18 @@ struct TextEditorView: UIViewRepresentable {
         // Reset so next isInitialFocus = true transition triggers becomeFirstResponder again
         if !isInitialFocus {
             context.coordinator.hasFocused = false
+            context.coordinator.cancelPendingInitialFocus()
         }
 
-        // Auto-focus only if this is marked for initial focus and hasn't focused yet
-        // No delay needed - proper sequencing ensures scroll completes before focus
-        if isInitialFocus && !context.coordinator.hasFocused && !uiView.isFirstResponder {
-            let pendingTap = initialTapLocation
-            DispatchQueue.main.async {
-                guard uiView.superview != nil else { return }
-                context.coordinator.hasFocused = uiView.becomeFirstResponder()
-                if let point = pendingTap,
-                   let position = uiView.closestPosition(to: point) {
-                    uiView.selectedTextRange = uiView.textRange(from: position, to: position)
-                }
-            }
+        // `focusedScrapID` is selection state. `focusRequestID` is the separate
+        // command to make this UIKit editor first responder, consumed once when
+        // the view is in a window.
+        if isInitialFocus && focusRequestID != context.coordinator.lastHandledFocusRequestID {
+            context.coordinator.requestInitialFocus(
+                focusRequestID,
+                for: uiView,
+                tapLocation: initialTapLocation
+            )
         }
     }
 
@@ -127,7 +129,11 @@ struct TextEditorView: UIViewRepresentable {
         weak var textView: UITextView?
         var lastActiveSearchRange: NSRange?
         var keyboardHeight: CGFloat = 0
+        var lastHandledFocusRequestID = 0
         private var keyboardObservers: [NSObjectProtocol] = []
+        private weak var pendingFocusTextView: EnhancedTextView?
+        private var pendingFocusRequestID: Int?
+        private var pendingFocusTapLocation: CGPoint?
 
         init(_ parent: TextEditorView) {
             self.parent = parent
@@ -160,6 +166,51 @@ struct TextEditorView: UIViewRepresentable {
 
         deinit {
             keyboardObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        }
+
+        func cancelPendingInitialFocus() {
+            pendingFocusTextView = nil
+            pendingFocusRequestID = nil
+            pendingFocusTapLocation = nil
+        }
+
+        func requestInitialFocus(
+            _ requestID: Int,
+            for textView: EnhancedTextView,
+            tapLocation: CGPoint?
+        ) {
+            pendingFocusTextView = textView
+            pendingFocusRequestID = requestID
+            pendingFocusTapLocation = tapLocation
+            attemptPendingInitialFocus()
+        }
+
+        func attemptPendingInitialFocus() {
+            guard parent.isInitialFocus,
+                  let requestID = pendingFocusRequestID,
+                  requestID != lastHandledFocusRequestID,
+                  let textView = pendingFocusTextView,
+                  textView.window != nil else { return }
+
+            DispatchQueue.main.async { [weak self, weak textView] in
+                guard let self,
+                      self.parent.isInitialFocus,
+                      let requestID = self.pendingFocusRequestID,
+                      requestID != self.lastHandledFocusRequestID,
+                      let textView,
+                      textView.window != nil else { return }
+
+                let didFocus = textView.becomeFirstResponder()
+                self.hasFocused = didFocus
+                guard didFocus else { return }
+
+                self.lastHandledFocusRequestID = requestID
+                if let point = self.pendingFocusTapLocation,
+                   let position = textView.closestPosition(to: point) {
+                    textView.selectedTextRange = textView.textRange(from: position, to: position)
+                }
+                self.cancelPendingInitialFocus()
+            }
         }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -248,6 +299,7 @@ struct TextEditorView: UIViewRepresentable {
 
 class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
     var onBecomeFocused: (() -> Void)?
+    var onAttachedToWindow: (() -> Void)?
 
     private let strikethroughPreviewLayer = CAShapeLayer()
     private var gestureLineRange: NSRange?
@@ -293,6 +345,13 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
 
     override var canBecomeFirstResponder: Bool {
         return true
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil {
+            onAttachedToWindow?()
+        }
     }
 
     // Ensures keyboard appears on first tap without requiring double-tap

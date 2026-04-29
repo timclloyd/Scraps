@@ -53,6 +53,7 @@ struct MainView: View {
     @State private var searchQuery: String = ""
     @State private var searchMatches: [(scrapID: String, range: NSRange)] = []
     @State private var currentMatchIndex: Int = 0
+    @State private var latestFocusRequestID = 0
 
     private var editorFont: UIFont {
         UIFont(name: Theme.font, size: Theme.textSize) ?? UIFont.systemFont(ofSize: Theme.textSize)
@@ -65,6 +66,10 @@ struct MainView: View {
     private var activeMatch: (scrapID: String, range: NSRange)? {
         guard !searchMatches.isEmpty else { return nil }
         return searchMatches[currentMatchIndex]
+    }
+
+    private var latestScrapID: String? {
+        documentManager.scraps.last?.id
     }
 
     var body: some View {
@@ -80,7 +85,12 @@ struct MainView: View {
                         activeMatchRange: activeMatch?.range
                     )
 
-                    LatestScrapPanelView(keyboardHeight: keyboardTracker.height, viewMode: viewMode, editorFont: editorFont)
+                    LatestScrapPanelView(
+                        keyboardHeight: keyboardTracker.height,
+                        viewMode: viewMode,
+                        editorFont: editorFont,
+                        focusRequestID: latestFocusRequestID
+                    )
                         .offset(y: viewMode == .latest ? 0 : geometry.size.height)
                         .allowsHitTesting(viewMode == .latest)
 
@@ -148,12 +158,27 @@ struct MainView: View {
             currentMatchIndex = 0
         }
         .onChange(of: documentManager.focusedScrapID) { _, _ in
+            if viewMode == .latest, documentManager.focusedScrapID == latestScrapID {
+                requestLatestEditorFocus()
+                return
+            }
+
             guard viewMode == .search else { return }
             withAnimation(Theme.navigationOut) {
                 viewMode = .archive
             } completion: {
                 clearSearch()
             }
+        }
+        .onChange(of: latestScrapID) { _, latestID in
+            guard viewMode == .latest,
+                  latestID == documentManager.focusedScrapID else { return }
+            requestLatestEditorFocus()
+        }
+        .onAppear {
+            guard viewMode == .latest,
+                  latestScrapID == documentManager.focusedScrapID else { return }
+            requestLatestEditorFocus()
         }
     }
 
@@ -267,7 +292,12 @@ struct MainView: View {
             viewMode = .latest
         } completion: {
             documentManager.focusLatestScrap()
+            requestLatestEditorFocus()
         }
+    }
+
+    private func requestLatestEditorFocus() {
+        latestFocusRequestID += 1
     }
 
     private func dismissKeyboard() {
