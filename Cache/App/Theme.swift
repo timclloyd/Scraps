@@ -140,7 +140,7 @@ enum Theme {
     /// The extra width overlaps the scrap's right-side padding, not its glyphs.
     static var minimapTapWidth: CGFloat { isIPhone ? 20 : 28 }
 
-    static var minimapTrailingInset: CGFloat { 6 }
+    static var minimapTrailingInset: CGFloat { 8 }
     static var minimapViewportMinHeight: CGFloat { isIPhone ? 22 : 28 }
     static var minimapViewportCornerRadius: CGFloat { 5 }
 
