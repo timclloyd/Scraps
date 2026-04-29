@@ -105,11 +105,10 @@ struct TextEditorView: UIViewRepresentable {
         // Auto-focus only if this is marked for initial focus and hasn't focused yet
         // No delay needed - proper sequencing ensures scroll completes before focus
         if isInitialFocus && !context.coordinator.hasFocused && !uiView.isFirstResponder {
-            context.coordinator.hasFocused = true
             let pendingTap = initialTapLocation
             DispatchQueue.main.async {
                 guard uiView.superview != nil else { return }
-                uiView.becomeFirstResponder()
+                context.coordinator.hasFocused = uiView.becomeFirstResponder()
                 if let point = pendingTap,
                    let position = uiView.closestPosition(to: point) {
                     uiView.selectedTextRange = uiView.textRange(from: position, to: position)
