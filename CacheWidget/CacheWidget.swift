@@ -105,7 +105,7 @@ private struct LatestScrapWidgetView: View {
             }
         }
         .widgetURL(URL(string: "scraps://latest"))
-        .containerBackground(WidgetTheme.latestPanelBackground, for: .widget)
+        .containerBackground(Theme.latestPanelBackground, for: .widget)
     }
 
     private var accessoryLine: String {
@@ -134,8 +134,8 @@ private struct HomeScreenScrapView: View {
             )
         }
         .padding(.top, topPadding)
-        .padding(.horizontal, WidgetTheme.horizontalPadding)
-        .padding(.bottom, WidgetTheme.bottomPadding)
+        .padding(.horizontal, Theme.horizontalPadding)
+        .padding(.bottom, Theme.textSize)
     }
 
     private var displayText: String {
@@ -150,7 +150,7 @@ private struct HomeScreenScrapView: View {
         case .systemSmall:
             return 13
         default:
-            return WidgetTheme.textSize
+            return Theme.textSize
         }
     }
 
@@ -202,16 +202,6 @@ private struct AccessoryCircularScrapView: View {
     }
 }
 
-private enum WidgetTheme {
-    static let textSize: CGFloat = 16
-    static let horizontalPadding: CGFloat = 16
-    static let bottomPadding: CGFloat = 16
-
-    static let latestPanelBackground = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .systemGray6 : .systemBackground
-    })
-}
-
 private struct RenderedWidgetText: View {
     let text: String
     let fontSize: CGFloat
@@ -238,35 +228,7 @@ private struct RenderedWidgetText: View {
     }
 }
 
-private enum WidgetValenceBand {
-    case positive
-    case negative
-    case neutral
-}
-
-private struct WidgetHighlightKeyword {
-    let regex: NSRegularExpression
-    let band: WidgetValenceBand
-}
-
 private enum WidgetTextDecorator {
-    private static let keywords: [WidgetHighlightKeyword] = {
-        let specs: [(String, WidgetValenceBand)] = [
-            ("\\bidea[a-zA-Z]*", .positive),
-            ("\\bimportant\\b", .negative),
-            ("\\btodo\\b", .neutral),
-            ("\\bremember\\b", .neutral),
-        ]
-
-        return specs.compactMap { pattern, band in
-            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
-            return WidgetHighlightKeyword(regex: regex, band: band)
-        }
-    }()
-
-    private static let strikeRegex = try? NSRegularExpression(pattern: "~~.+?~~")
-    private static let urlDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-
     static func attributedString(for text: String, colorScheme: ColorScheme) -> AttributedString {
         AttributedString(nsAttributedString(
             for: text,
@@ -297,21 +259,22 @@ private enum WidgetTextDecorator {
         }
         attributed.addAttributes(baseAttributes, range: fullRange)
 
-        for keyword in keywords {
+        for keyword in HighlightPatterns.keywords {
             keyword.regex.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
-                guard let range = match?.range else { return }
+                guard let range = match?.range,
+                      let color = HighlightPatterns.highlightColor[keyword.band] else { return }
                 attributed.addAttribute(
                     .backgroundColor,
-                    value: highlightColor(for: keyword.band, colorScheme: colorScheme),
+                    value: color,
                     range: range
                 )
             }
         }
 
-        urlDetector?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
+        HighlightPatterns.urlDetector?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
             guard let match, let url = match.url else { return }
             var attributes: [NSAttributedString.Key: Any] = [
-                .foregroundColor: UIColor.systemGray2,
+                .foregroundColor: Theme.linkColor,
                 .underlineStyle: NSUnderlineStyle.single.rawValue
             ]
             if includesLinkAttribute {
@@ -320,27 +283,15 @@ private enum WidgetTextDecorator {
             attributed.addAttributes(attributes, range: match.range)
         }
 
-        strikeRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
+        HighlightPatterns.strikeRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
             guard let range = match?.range else { return }
             attributed.addAttributes([
                 .strikethroughStyle: NSUnderlineStyle.single.rawValue,
-                .foregroundColor: UIColor.systemGray2
+                .foregroundColor: Theme.linkColor
             ], range: range)
         }
 
         return attributed
-    }
-
-    private static func highlightColor(for band: WidgetValenceBand, colorScheme: ColorScheme) -> UIColor {
-        let alpha = colorScheme == .dark ? 0.4 : 0.22
-        switch band {
-        case .positive:
-            return UIColor.systemGreen.withAlphaComponent(alpha)
-        case .negative:
-            return UIColor.systemRed.withAlphaComponent(alpha)
-        case .neutral:
-            return UIColor.systemBlue.withAlphaComponent(alpha)
-        }
     }
 }
 
@@ -357,7 +308,7 @@ private enum WidgetTextRenderer {
         format.opaque = false
 
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            let font = UIFont(name: "RobotoMono-Regular", size: fontSize)
+            let font = UIFont(name: Theme.font, size: fontSize)
                 ?? UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
             let attributed = WidgetTextDecorator.nsAttributedString(
                 for: text,

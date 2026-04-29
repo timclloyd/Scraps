@@ -12,6 +12,8 @@
 		15A000072E00000000000000 /* RobotoMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 15A000142E00000000000000 /* RobotoMono-Regular.ttf */; };
 		15A000082E00000000000000 /* RobotoMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 15A000152E00000000000000 /* RobotoMono-Medium.ttf */; };
 		15A000092E00000000000000 /* CacheWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 15A000012E00000000000000 /* CacheWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		15A000172E00000000000000 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15A000162E00000000000000 /* Theme.swift */; };
+		15A000192E00000000000000 /* HighlightPatterns.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15A000182E00000000000000 /* HighlightPatterns.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,6 +47,8 @@
 		15A000052E00000000000000 /* CacheWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CacheWidget.entitlements; sourceTree = "<group>"; };
 		15A000142E00000000000000 /* RobotoMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "RobotoMono-Regular.ttf"; path = "../Cache/Fonts/RobotoMono-Regular.ttf"; sourceTree = "<group>"; };
 		15A000152E00000000000000 /* RobotoMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "RobotoMono-Medium.ttf"; path = "../Cache/Fonts/RobotoMono-Medium.ttf"; sourceTree = "<group>"; };
+		15A000162E00000000000000 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Theme.swift; path = "../Cache/App/Theme.swift"; sourceTree = "<group>"; };
+		15A000182E00000000000000 /* HighlightPatterns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HighlightPatterns.swift; path = "../Cache/Shared/HighlightPatterns.swift"; sourceTree = "<group>"; };
 		15D9C2862D350BFB0013E9A3 /* Scraps.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Scraps.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		15D9C2982D350BFC0013E9A3 /* CacheTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CacheTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		15D9C2A22D350BFC0013E9A3 /* CacheUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CacheUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -143,6 +147,8 @@
 				15A000032E00000000000000 /* CacheWidget.swift */,
 				15A000042E00000000000000 /* Info.plist */,
 				15A000052E00000000000000 /* CacheWidget.entitlements */,
+				15A000162E00000000000000 /* Theme.swift */,
+				15A000182E00000000000000 /* HighlightPatterns.swift */,
 				15A000142E00000000000000 /* RobotoMono-Regular.ttf */,
 				15A000152E00000000000000 /* RobotoMono-Medium.ttf */,
 			);
@@ -354,6 +360,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				15A000062E00000000000000 /* CacheWidget.swift in Sources */,
+				15A000172E00000000000000 /* Theme.swift in Sources */,
+				15A000192E00000000000000 /* HighlightPatterns.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
