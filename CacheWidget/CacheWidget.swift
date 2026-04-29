@@ -303,34 +303,37 @@ private enum WidgetTextRenderer {
         colorScheme: ColorScheme,
         scale: CGFloat
     ) -> UIImage {
-        let format = UIGraphicsImageRendererFormat()
+        let traitCollection = UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light)
+        let format = UIGraphicsImageRendererFormat(for: traitCollection)
         format.scale = scale
         format.opaque = false
 
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            let font = UIFont(name: Theme.font, size: fontSize)
-                ?? UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-            let attributed = WidgetTextDecorator.nsAttributedString(
-                for: text,
-                font: font,
-                colorScheme: colorScheme,
-                includesLinkAttribute: false
-            )
-            let textStorage = NSTextStorage(attributedString: attributed)
-            let layoutManager = NSLayoutManager()
-            let textContainer = NSTextContainer(size: size)
+            traitCollection.performAsCurrent {
+                let font = UIFont(name: Theme.font, size: fontSize)
+                    ?? UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+                let attributed = WidgetTextDecorator.nsAttributedString(
+                    for: text,
+                    font: font,
+                    colorScheme: colorScheme,
+                    includesLinkAttribute: false
+                )
+                let textStorage = NSTextStorage(attributedString: attributed)
+                let layoutManager = NSLayoutManager()
+                let textContainer = NSTextContainer(size: size)
 
-            textContainer.lineFragmentPadding = 0
-            textContainer.maximumNumberOfLines = 0
-            textContainer.lineBreakMode = .byWordWrapping
+                textContainer.lineFragmentPadding = 0
+                textContainer.maximumNumberOfLines = 0
+                textContainer.lineBreakMode = .byWordWrapping
 
-            layoutManager.usesFontLeading = false
-            layoutManager.addTextContainer(textContainer)
-            textStorage.addLayoutManager(layoutManager)
+                layoutManager.usesFontLeading = false
+                layoutManager.addTextContainer(textContainer)
+                textStorage.addLayoutManager(layoutManager)
 
-            let glyphRange = layoutManager.glyphRange(for: textContainer)
-            layoutManager.drawBackground(forGlyphRange: glyphRange, at: .zero)
-            layoutManager.drawGlyphs(forGlyphRange: glyphRange, at: .zero)
+                let glyphRange = layoutManager.glyphRange(for: textContainer)
+                layoutManager.drawBackground(forGlyphRange: glyphRange, at: .zero)
+                layoutManager.drawGlyphs(forGlyphRange: glyphRange, at: .zero)
+            }
         }
     }
 }
@@ -356,9 +359,134 @@ struct LatestScrapWidget: Widget {
     }
 }
 
+// MARK: - Highlight Sentiment Widget
+
+private struct SentimentEntry: TimelineEntry {
+    let date: Date
+    let positive: Int
+    let neutral: Int
+    let negative: Int
+}
+
+private struct SentimentProvider: TimelineProvider {
+    func placeholder(in context: Context) -> SentimentEntry {
+        SentimentEntry(date: Date(), positive: 5, neutral: 3, negative: 2)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (SentimentEntry) -> Void) {
+        completion(SentimentStore.load())
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<SentimentEntry>) -> Void) {
+        let entry = SentimentStore.load()
+        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date()
+        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+    }
+}
+
+private enum SentimentStore {
+    private static let ubiquityContainerIdentifier = "iCloud.timlloyd.scraps"
+
+    static func load() -> SentimentEntry {
+        var counts: [ValenceBand: Int] = [.positive: 0, .neutral: 0, .negative: 0]
+
+        guard let documentsURL = FileManager.default
+            .url(forUbiquityContainerIdentifier: ubiquityContainerIdentifier)?
+            .appendingPathComponent("Documents") else {
+            return SentimentEntry(date: Date(), positive: 0, neutral: 0, negative: 0)
+        }
+
+        let fileURLs = (try? FileManager.default.contentsOfDirectory(
+            at: documentsURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )) ?? []
+
+        for url in fileURLs where url.pathExtension == "txt" {
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            let range = NSRange(location: 0, length: (text as NSString).length)
+            for keyword in HighlightPatterns.keywords {
+                counts[keyword.band, default: 0] += keyword.regex.numberOfMatches(in: text, options: [], range: range)
+            }
+        }
+
+        return SentimentEntry(
+            date: Date(),
+            positive: counts[.positive, default: 0],
+            neutral: counts[.neutral, default: 0],
+            negative: counts[.negative, default: 0]
+        )
+    }
+}
+
+private struct SentimentWidgetView: View {
+    let entry: SentimentEntry
+
+    let innerCornerRadius: CGFloat = 14
+
+    var body: some View {
+        SentimentBar(
+            positive: entry.positive,
+            neutral: entry.neutral,
+            negative: entry.negative,
+            cornerRadius: innerCornerRadius
+        )
+        .widgetURL(URL(string: "scraps://latest"))
+        .containerBackground(Theme.latestPanelBackground, for: .widget)
+    }
+}
+
+private struct SentimentBar: View {
+    let positive: Int
+    let neutral: Int
+    let negative: Int
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        let total = positive + neutral + negative
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        GeometryReader { proxy in
+            if total == 0 {
+                shape.fill(Color(.systemGray5))
+            } else {
+                HStack(spacing: 0) {
+                    if positive > 0 {
+                        Theme.minimapColor(for: .positive)
+                            .frame(width: proxy.size.width * CGFloat(positive) / CGFloat(total))
+                    }
+                    if neutral > 0 {
+                        Theme.minimapColor(for: .neutral)
+                            .frame(width: proxy.size.width * CGFloat(neutral) / CGFloat(total))
+                    }
+                    if negative > 0 {
+                        Theme.minimapColor(for: .negative)
+                            .frame(width: proxy.size.width * CGFloat(negative) / CGFloat(total))
+                    }
+                }
+                .clipShape(shape)
+                .opacity(0.667)
+            }
+        }
+    }
+}
+
+struct HighlightSentimentWidget: Widget {
+    let kind = "HighlightSentimentWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: SentimentProvider()) { entry in
+            SentimentWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Highlight Sentiment")
+        .description("Shows the balance of positive, neutral, and negative highlights across all scraps.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
 @main
 struct CacheWidgetBundle: WidgetBundle {
     var body: some Widget {
         LatestScrapWidget()
+        HighlightSentimentWidget()
     }
 }
