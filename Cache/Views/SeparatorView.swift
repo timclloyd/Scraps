@@ -20,10 +20,18 @@ struct SeparatorView: View {
 
     var body: some View {
         VStack(spacing: Theme.separatorVerticalPadding / 2) {
+            DottedLine()
+                .stroke(
+                    Color(Theme.separatorColor),
+                    style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [1, 5])
+                )
+                .frame(height: 1)
+            
             Text(formattedTimestamp)
                 .font(.custom(Theme.font, size: Theme.separatorFontSize))
                 .foregroundColor(Color(Theme.separatorColor))
-                .frame(maxWidth: .infinity, alignment: .leading) // align left
+                .padding(.bottom, Theme.separatorFontSize)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

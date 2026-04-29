@@ -52,9 +52,9 @@ enum Theme {
     })
     static let strikethroughHapticStyle = UIImpactFeedbackGenerator.FeedbackStyle.medium
 
-    static let linkColor = UIColor.systemGray3
+    static let linkColor = UIColor.systemGray2
     static let panelBorderColor = UIColor.systemGray5
-    static let separatorColor = UIColor.systemGray3
+    static let separatorColor = UIColor.systemGray2
     
     static func highlightColor(for traitCollection: UITraitCollection) -> UIColor {
         UIColor { traitCollection in
@@ -138,6 +138,10 @@ enum Theme {
     /// strip is easy to hit with a fingertip without stealing text real estate.
     /// The extra width overlaps the scrap's right-side padding, not its glyphs.
     static var minimapTapWidth: CGFloat { isIPhone ? 20 : 28 }
+
+    static var minimapTrailingInset: CGFloat { 6 }
+    static var minimapViewportMinHeight: CGFloat { isIPhone ? 22 : 28 }
+    static var minimapViewportCornerRadius: CGFloat { 5 }
 
     static func minimapColor(for band: ValenceBand) -> Color {
         let base: UIColor

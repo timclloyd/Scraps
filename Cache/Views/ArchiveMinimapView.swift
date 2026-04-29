@@ -30,11 +30,17 @@ private struct Slice: Identifiable {
     let segments: [BandSegment]
 }
 
+struct ArchiveMinimapViewport: Equatable {
+    let topFraction: CGFloat
+    let heightFraction: CGFloat
+}
+
 struct ArchiveMinimapView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     let scraps: [Scrap]
     let hits: [String: [ValenceHit]]
+    let visibleViewport: ArchiveMinimapViewport?
     /// Called on tap/drag-release so the archive can animate to the scrap.
     let onTapScrap: (String) -> Void
     /// Called continuously while dragging for immediate (non-animated) scrubbing.
@@ -47,6 +53,7 @@ struct ArchiveMinimapView: View {
 
         GeometryReader { geometry in
             let sliceHeight = slices.isEmpty ? 0 : geometry.size.height / CGFloat(slices.count)
+            let stripCenterX = geometry.size.width - Theme.minimapTrailingInset - Theme.minimapWidth / 2
 
             ZStack(alignment: .trailing) {
                 Color.clear
@@ -67,6 +74,11 @@ struct ArchiveMinimapView: View {
                     }
                 }
                 .frame(width: Theme.minimapWidth)
+                .position(x: stripCenterX, y: geometry.size.height / 2)
+
+                if let visibleViewport, !slices.isEmpty {
+                    viewportIndicator(visibleViewport, in: geometry.size.height, stripCenterX: stripCenterX)
+                }
             }
             .contentShape(Rectangle())
             .gesture(
@@ -89,6 +101,27 @@ struct ArchiveMinimapView: View {
             )
         }
         .frame(width: Theme.minimapTapWidth)
+    }
+
+    private func viewportIndicator(_ viewport: ArchiveMinimapViewport, in height: CGFloat, stripCenterX: CGFloat) -> some View {
+        let rawHeight = viewport.heightFraction * height
+        let indicatorHeight = min(max(rawHeight, Theme.minimapViewportMinHeight), height)
+        let rawCenterY = viewport.topFraction * height + rawHeight / 2
+        let centerY = min(max(rawCenterY, indicatorHeight / 2), height - indicatorHeight / 2)
+        let width = Theme.minimapWidth + 6
+
+        return ZStack {
+            RoundedRectangle(cornerRadius: Theme.minimapViewportCornerRadius, style: .continuous)
+                .fill(Color(UIColor.white).opacity(colorScheme == .dark ? 0.1 : 0.1))
+            RoundedRectangle(cornerRadius: Theme.minimapViewportCornerRadius, style: .continuous)
+                .stroke((Color(UIColor.systemGray2)), lineWidth: 1)
+        }
+        .frame(width: width, height: indicatorHeight)
+        .position(
+            x: stripCenterX,
+            y: centerY
+        )
+        .allowsHitTesting(false)
     }
 
     /// One slice per scrap, newest first. scraps is sorted oldest-first by DocumentManager.

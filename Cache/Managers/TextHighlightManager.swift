@@ -151,7 +151,7 @@ class TextHighlightManager: NSLayoutManager {
         HighlightPatterns.strikeRegex?.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
             guard let matchRange = match?.range, matchRange.upperBound <= storageLength else { return }
             textStorage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: matchRange)
-            textStorage.addAttribute(.foregroundColor, value: UIColor.systemGray3, range: matchRange)
+            textStorage.addAttribute(.foregroundColor, value: UIColor.systemGray2, range: matchRange)
         }
 
         textStorage.endEditing()
