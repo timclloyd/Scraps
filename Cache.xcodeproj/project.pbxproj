@@ -8,9 +8,20 @@
 
 /* Begin PBXBuildFile section */
 		152937B72D3C47CD00F235A2 /* SmoothGradient in Frameworks */ = {isa = PBXBuildFile; productRef = 152937B62D3C47CD00F235A2 /* SmoothGradient */; };
+		15A000062E00000000000000 /* CacheWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15A000032E00000000000000 /* CacheWidget.swift */; };
+		15A000072E00000000000000 /* RobotoMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 15A000142E00000000000000 /* RobotoMono-Regular.ttf */; };
+		15A000082E00000000000000 /* RobotoMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 15A000152E00000000000000 /* RobotoMono-Medium.ttf */; };
+		15A000092E00000000000000 /* CacheWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 15A000012E00000000000000 /* CacheWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		15A000132E00000000000000 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15D9C27E2D350BFB0013E9A3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 15A0000E2E00000000000000;
+			remoteInfo = CacheWidget;
+		};
 		15D9C2992D350BFC0013E9A3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 15D9C27E2D350BFB0013E9A3 /* Project object */;
@@ -28,6 +39,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		15A000012E00000000000000 /* CacheWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CacheWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		15A000032E00000000000000 /* CacheWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheWidget.swift; sourceTree = "<group>"; };
+		15A000042E00000000000000 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		15A000052E00000000000000 /* CacheWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CacheWidget.entitlements; sourceTree = "<group>"; };
+		15A000142E00000000000000 /* RobotoMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "RobotoMono-Regular.ttf"; path = "../Cache/Fonts/RobotoMono-Regular.ttf"; sourceTree = "<group>"; };
+		15A000152E00000000000000 /* RobotoMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "RobotoMono-Medium.ttf"; path = "../Cache/Fonts/RobotoMono-Medium.ttf"; sourceTree = "<group>"; };
 		15D9C2862D350BFB0013E9A3 /* Scraps.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Scraps.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		15D9C2982D350BFC0013E9A3 /* CacheTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CacheTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		15D9C2A22D350BFC0013E9A3 /* CacheUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CacheUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -78,6 +95,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		15A0000B2E00000000000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		15D9C2832D350BFB0013E9A3 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -107,15 +131,29 @@
 			isa = PBXGroup;
 			children = (
 				15D9C2882D350BFB0013E9A3 /* Cache */,
+				15A000022E00000000000000 /* CacheWidget */,
 				15D9C29B2D350BFC0013E9A3 /* CacheTests */,
 				15D9C2872D350BFB0013E9A3 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		15A000022E00000000000000 /* CacheWidget */ = {
+			isa = PBXGroup;
+			children = (
+				15A000032E00000000000000 /* CacheWidget.swift */,
+				15A000042E00000000000000 /* Info.plist */,
+				15A000052E00000000000000 /* CacheWidget.entitlements */,
+				15A000142E00000000000000 /* RobotoMono-Regular.ttf */,
+				15A000152E00000000000000 /* RobotoMono-Medium.ttf */,
+			);
+			path = CacheWidget;
 			sourceTree = "<group>";
 		};
 		15D9C2872D350BFB0013E9A3 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				15D9C2862D350BFB0013E9A3 /* Scraps.app */,
+				15A000012E00000000000000 /* CacheWidget.appex */,
 				15D9C2982D350BFC0013E9A3 /* CacheTests.xctest */,
 				15D9C2A22D350BFC0013E9A3 /* CacheUITests.xctest */,
 			);
@@ -132,10 +170,12 @@
 				15D9C2822D350BFB0013E9A3 /* Sources */,
 				15D9C2832D350BFB0013E9A3 /* Frameworks */,
 				15D9C2842D350BFB0013E9A3 /* Resources */,
+				15A0000D2E00000000000000 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				15A000122E00000000000000 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				15D9C2882D350BFB0013E9A3 /* Cache */,
@@ -147,6 +187,25 @@
 			productName = Cache;
 			productReference = 15D9C2862D350BFB0013E9A3 /* Scraps.app */;
 			productType = "com.apple.product-type.application";
+		};
+		15A0000E2E00000000000000 /* CacheWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 15A0000F2E00000000000000 /* Build configuration list for PBXNativeTarget "CacheWidget" */;
+			buildPhases = (
+				15A0000A2E00000000000000 /* Sources */,
+				15A0000B2E00000000000000 /* Frameworks */,
+				15A0000C2E00000000000000 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CacheWidget;
+			packageProductDependencies = (
+			);
+			productName = CacheWidget;
+			productReference = 15A000012E00000000000000 /* CacheWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		15D9C2972D350BFC0013E9A3 /* CacheTests */ = {
 			isa = PBXNativeTarget;
@@ -201,6 +260,9 @@
 				LastSwiftUpdateCheck = 1620;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					15A0000E2E00000000000000 = {
+						CreatedOnToolsVersion = 16.2;
+					};
 					15D9C2852D350BFB0013E9A3 = {
 						CreatedOnToolsVersion = 16.2;
 					};
@@ -232,13 +294,37 @@
 			projectRoot = "";
 			targets = (
 				15D9C2852D350BFB0013E9A3 /* Scraps */,
+				15A0000E2E00000000000000 /* CacheWidget */,
 				15D9C2972D350BFC0013E9A3 /* CacheTests */,
 				15D9C2A12D350BFC0013E9A3 /* CacheUITests */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		15A0000D2E00000000000000 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				15A000092E00000000000000 /* CacheWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXResourcesBuildPhase section */
+		15A0000C2E00000000000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15A000072E00000000000000 /* RobotoMono-Regular.ttf in Resources */,
+				15A000082E00000000000000 /* RobotoMono-Medium.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		15D9C2842D350BFB0013E9A3 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -263,6 +349,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		15A0000A2E00000000000000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15A000062E00000000000000 /* CacheWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		15D9C2822D350BFB0013E9A3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -287,6 +381,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		15A000122E00000000000000 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 15A0000E2E00000000000000 /* CacheWidget */;
+			targetProxy = 15A000132E00000000000000 /* PBXContainerItemProxy */;
+		};
 		15D9C29A2D350BFC0013E9A3 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 15D9C2852D350BFB0013E9A3 /* Scraps */;
@@ -300,6 +399,62 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		15A000102E00000000000000 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = CacheWidget/CacheWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Y6G9AAT4BU;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CacheWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Scraps;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = timlloyd.Scraps.CacheWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		15A000112E00000000000000 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = CacheWidget/CacheWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Y6G9AAT4BU;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CacheWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Scraps;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = timlloyd.Scraps.CacheWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		15D9C2AA2D350BFC0013E9A3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -560,6 +715,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		15A0000F2E00000000000000 /* Build configuration list for PBXNativeTarget "CacheWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				15A000102E00000000000000 /* Debug */,
+				15A000112E00000000000000 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		15D9C2812D350BFB0013E9A3 /* Build configuration list for PBXProject "Cache" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
