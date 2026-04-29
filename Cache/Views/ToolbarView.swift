@@ -14,13 +14,15 @@ struct ToolbarView: View {
     var body: some View {
         HStack(spacing: 0) {
             Button(action: onToggleMode) {
-                Image(systemName: viewMode == .latest ? "calendar" : "text.badge.plus")
-                    .font(.system(size: 20, weight: .regular))
-                    .foregroundColor(Color(uiColor: .label))
-                    .contentTransition(.symbolEffect(.replace))
-                    .animation(.easeInOut(duration: 0.2), value: viewMode)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .contentShape(Rectangle())
+                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                    Image(systemName: modeToggleIconName(for: timeline.date))
+                        .font(.system(size: 20, weight: .regular))
+                        .foregroundColor(Color(uiColor: .label))
+                        .contentTransition(.symbolEffect(.replace))
+                        .animation(.easeInOut(duration: 0.2), value: viewMode)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                }
             }
             .buttonStyle(.plain)
             .padding(.leading, -6) // adjust optical horizontal alignment
@@ -41,5 +43,12 @@ struct ToolbarView: View {
         }
         .frame(height: topHeight)
         .background(Theme.archiveBackground)
+    }
+
+    private func modeToggleIconName(for date: Date) -> String {
+        guard viewMode != .latest else { return "calendar" }
+
+        let day = Calendar.current.component(.day, from: date)
+        return "\(day).calendar"
     }
 }
