@@ -102,7 +102,7 @@ struct ArchiveListView: View {
                             proxy.scrollTo(id, anchor: .top)
                         }
                     )
-                    .padding(.top, Theme.topFadeHeight)
+                    .padding(.top, Theme.textSize + 2)
                     .padding(.bottom, Theme.bottomFadeHeight)
                 }
                 .onAppear {
