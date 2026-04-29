@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import UIKit
 import os
+import WidgetKit
 
 @MainActor
 class DocumentManager: ObservableObject {
@@ -25,6 +26,7 @@ class DocumentManager: ObservableObject {
 
     private var hasBackgrounded = false
     private var isInitialLoad = true
+    private var widgetReloadWorkItem: DispatchWorkItem?
 
     // Single canonical slot for the background-save task so rapid inactive/active
     // cycles can't leak overlapping identifiers between captured closure locals.
@@ -443,6 +445,10 @@ class DocumentManager: ObservableObject {
         scrap.document.save(to: scrap.document.fileURL, for: .forOverwriting) { success in
             if !success {
                 print("Error: Failed to save scrap: \(scrap.filename)")
+            } else {
+                Task { @MainActor in
+                    self.scheduleWidgetReload()
+                }
             }
         }
     }
@@ -501,7 +507,10 @@ class DocumentManager: ObservableObject {
                 already = true
                 return true
             }
-            if shouldRun { completion?() }
+            if shouldRun {
+                WidgetCenter.shared.reloadTimelines(ofKind: "LatestScrapWidget")
+                completion?()
+            }
         }
 
         group.notify(queue: .main) {
@@ -517,6 +526,15 @@ class DocumentManager: ObservableObject {
             }
             MainActor.assumeIsolated { fire() }
         }
+    }
+
+    private func scheduleWidgetReload() {
+        widgetReloadWorkItem?.cancel()
+        let workItem = DispatchWorkItem {
+            WidgetCenter.shared.reloadTimelines(ofKind: "LatestScrapWidget")
+        }
+        widgetReloadWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: workItem)
     }
 
     private func deleteScrap(_ scrap: Scrap) async {

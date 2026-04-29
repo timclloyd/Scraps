@@ -2,17 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>timlloyd.Scraps</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>scraps</string>
-			</array>
-		</dict>
-	</array>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.widgetkit-extension</string>
+	</dict>
 	<key>UIAppFonts</key>
 	<array>
 		<string>RobotoMono-Regular.ttf</string>

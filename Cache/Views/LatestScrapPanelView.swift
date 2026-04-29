@@ -15,10 +15,10 @@ struct LatestScrapPanelView: View {
 
     var body: some View {
         let shape = UnevenRoundedRectangle(
-            topLeadingRadius: Preferences.latestPanelCornerRadius,
+            topLeadingRadius: Theme.latestPanelCornerRadius,
             bottomLeadingRadius: 0,
             bottomTrailingRadius: 0,
-            topTrailingRadius: Preferences.latestPanelCornerRadius
+            topTrailingRadius: Theme.latestPanelCornerRadius
         )
 
         return ScrollViewReader { proxy in
