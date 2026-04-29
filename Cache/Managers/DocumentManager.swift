@@ -1,8 +1,6 @@
 import Foundation
 import Combine
 import UIKit
-import os
-import WidgetKit
 
 @MainActor
 class DocumentManager: ObservableObject {
@@ -26,20 +24,10 @@ class DocumentManager: ObservableObject {
 
     private var hasBackgrounded = false
     private var isInitialLoad = true
-    private var widgetReloadWorkItem: DispatchWorkItem?
 
-    // Single canonical slot for the background-save task so rapid inactive/active
-    // cycles can't leak overlapping identifiers between captured closure locals.
-    private var backgroundSaveTaskID: UIBackgroundTaskIdentifier = .invalid
-
-    // Cached container URL resolved by the async probe. Avoids a second
-    // forUbiquityContainerIdentifier syscall on every directory access, and
-    // keeps the "available" signal and the URL it resolved to consistent.
-    private var ubiquityContainerURL: URL?
-
-    private var documentsDirectoryURL: URL? {
-        ubiquityContainerURL?.appendingPathComponent("Documents")
-    }
+    private let fileStore = ScrapFileStore()
+    private let widgetReloadScheduler = WidgetReloadScheduler()
+    private lazy var saveCoordinator = DocumentSaveCoordinator(widgetReloadScheduler: widgetReloadScheduler)
 
     init() {
         // Observe identity changes (user signs out / switches iCloud accounts)
@@ -103,143 +91,25 @@ class DocumentManager: ObservableObject {
         }
     }
 
-    // Returns sorted scrap file URLs (oldest first), creating the Documents directory if needed.
-    // Returns nil on error, empty array if no scraps exist yet.
-    // All file ops on the iCloud container go through NSFileCoordinator so the iCloud
-    // daemon sees a consistent view and so we don't race with in-flight syncs from other devices.
-    // Async because NSFileCoordinator.coordinate(...) blocks the calling thread until the
-    // writer lock is granted — holding that on the main actor freezes the UI when another
-    // device is mid-sync. The coordinate helpers hop to a background queue.
-    private func enumeratedScrapFiles() async throws -> [URL]? {
-        guard let documentsURL = documentsDirectoryURL else {
-            print("Error: Could not get iCloud documents directory URL")
-            return nil
-        }
-
-        if !FileManager.default.fileExists(atPath: documentsURL.path) {
-            // Default options ([]) — .forReplacing would imply overwrite semantics to other
-            // presenters, which is wrong for create-if-missing.
-            try await Self.coordinateWrite(at: documentsURL, options: []) { url in
-                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-            }
-        }
-
-        let contents: [URL] = try await Self.coordinateRead(at: documentsURL, options: []) { url in
-            try FileManager.default.contentsOfDirectory(
-                at: url,
-                includingPropertiesForKeys: nil
-            )
-        }
-        return try await normalizeLegacyScrapFiles(in: contents)
-    }
-
-    // filePresenter is nil because the owning TextDocument (a UIDocument) is already
-    // registered as presenter for its own file and receives coordination callbacks directly.
-    // For a DocumentManager-initiated delete/rename of a file that is open in-process, this
-    // means the coordinator still notifies the document — accepted here to keep the helper
-    // call-site-agnostic rather than threading the owning document through every path.
-    private nonisolated static func coordinateRead<T: Sendable>(
-        at url: URL,
-        options: NSFileCoordinator.ReadingOptions,
-        _ body: @Sendable @escaping (URL) throws -> T
-    ) async throws -> T {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let coordinator = NSFileCoordinator(filePresenter: nil)
-                var coordError: NSError?
-                var result: Result<T, Error>?
-                coordinator.coordinate(readingItemAt: url, options: options, error: &coordError) { coordinatedURL in
-                    result = Result { try body(coordinatedURL) }
-                }
-                if let coordError {
-                    continuation.resume(throwing: coordError)
-                } else if let result {
-                    continuation.resume(with: result)
-                } else {
-                    continuation.resume(throwing: CocoaError(.fileReadUnknown))
-                }
-            }
-        }
-    }
-
-    private nonisolated static func coordinateWrite(
-        at url: URL,
-        options: NSFileCoordinator.WritingOptions,
-        _ body: @Sendable @escaping (URL) throws -> Void
-    ) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let coordinator = NSFileCoordinator(filePresenter: nil)
-                var coordError: NSError?
-                var thrown: Error?
-                coordinator.coordinate(writingItemAt: url, options: options, error: &coordError) { coordinatedURL in
-                    do { try body(coordinatedURL) } catch { thrown = error }
-                }
-                if let coordError {
-                    continuation.resume(throwing: coordError)
-                } else if let thrown {
-                    continuation.resume(throwing: thrown)
-                } else {
-                    continuation.resume()
-                }
-            }
-        }
-    }
-
-    private nonisolated static func coordinateMove(from source: URL, to destination: URL) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let coordinator = NSFileCoordinator(filePresenter: nil)
-                var coordError: NSError?
-                var thrown: Error?
-                coordinator.coordinate(
-                    writingItemAt: source, options: .forMoving,
-                    writingItemAt: destination, options: .forReplacing,
-                    error: &coordError
-                ) { src, dst in
-                    do {
-                        try FileManager.default.moveItem(at: src, to: dst)
-                        coordinator.item(at: src, didMoveTo: dst)
-                    } catch {
-                        thrown = error
-                    }
-                }
-                if let coordError {
-                    continuation.resume(throwing: coordError)
-                } else if let thrown {
-                    continuation.resume(throwing: thrown)
-                } else {
-                    continuation.resume()
-                }
-            }
-        }
-    }
-
     // Two-phase load used only at init: opens the latest scrap first so the UI becomes
     // interactive immediately, then loads older scraps in the background.
     private func loadScrapsInitial() async {
         do {
-            guard let scrapFiles = try await enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
+            guard let scrapFiles = try await fileStore.enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
 
             // Filenames encode the timestamp, so descending lexicographic order = latest first
             let sortedFiles = scrapFiles.sorted { $0.lastPathComponent > $1.lastPathComponent }
 
             // Phase 1: open the latest scrap immediately so the panel and keyboard appear
-            if let latestFile = sortedFiles.first {
-                let filename = latestFile.lastPathComponent
-                if let timestamp = Scrap.parseTimestamp(from: filename) {
-                    let document = TextDocument(fileURL: latestFile)
-                    let scrap = Scrap(timestamp: timestamp, filename: filename, document: document)
-                    let success = await withCheckedContinuation { continuation in
-                        document.open { continuation.resume(returning: $0) }
-                    }
-                    if success {
-                        attachObserver(to: document)
-                        scraps = [scrap]
-                        focusLatestScrap()
-                    } else {
-                        print("Error: Failed to open latest scrap: \(filename)")
-                    }
+            if let latestFile = sortedFiles.first,
+               let latestScrap = ScrapDocumentLoader.makeScrap(from: latestFile) {
+                let success = await ScrapDocumentLoader.openDocument(latestScrap.document)
+                if success {
+                    attachObserver(to: latestScrap.document)
+                    scraps = [latestScrap]
+                    focusLatestScrap()
+                } else {
+                    print("Error: Failed to open latest scrap: \(latestScrap.filename)")
                 }
             }
 
@@ -247,26 +117,7 @@ class DocumentManager: ObservableObject {
             let otherFiles = Array(sortedFiles.dropFirst())
             guard !otherFiles.isEmpty else { return }
 
-            let otherScraps = await withTaskGroup(of: (Scrap, Bool).self, returning: [Scrap].self) { group in
-                for fileURL in otherFiles {
-                    let filename = fileURL.lastPathComponent
-                    guard let timestamp = Scrap.parseTimestamp(from: filename) else { continue }
-                    let document = TextDocument(fileURL: fileURL)
-                    let scrap = Scrap(timestamp: timestamp, filename: filename, document: document)
-                    group.addTask {
-                        let success = await withCheckedContinuation { continuation in
-                            document.open { continuation.resume(returning: $0) }
-                        }
-                        return (scrap, success)
-                    }
-                }
-                var results: [Scrap] = []
-                for await (scrap, success) in group {
-                    if success { results.append(scrap) }
-                    else { print("Error: Failed to open scrap: \(scrap.filename)") }
-                }
-                return results
-            }
+            let otherScraps = await ScrapDocumentLoader.openScraps(at: otherFiles)
 
             // Between Phase 1 completing and Phase 2 finishing, `scraps` may have been
             // mutated by on-demand creation, deletion, or a full `replaceLoadedScraps`.
@@ -279,7 +130,7 @@ class DocumentManager: ObservableObject {
             for scrap in otherScraps {
                 if existingFilenames.contains(scrap.filename) {
                     // Safe to discard: this duplicate was opened in Phase 2 but never had an observer attached and is not in `scraps`, so no user edits can have landed on it.
-                    scrap.document.close { _ in }
+                    await ScrapDocumentLoader.closeDocument(scrap.document)
                 } else {
                     newScraps.append(scrap)
                 }
@@ -300,42 +151,8 @@ class DocumentManager: ObservableObject {
 
     private func loadScraps() async {
         do {
-            guard let scrapFiles = try await enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
-
-            // Open all documents concurrently
-            let loadedScraps = await withTaskGroup(of: (Scrap, Bool).self, returning: [Scrap].self) { group in
-                for fileURL in scrapFiles {
-                    let filename = fileURL.lastPathComponent
-
-                    guard let timestamp = Scrap.parseTimestamp(from: filename) else {
-                        print("Warning: Could not parse timestamp from filename: \(filename)")
-                        continue
-                    }
-
-                    let document = TextDocument(fileURL: fileURL)
-                    let scrap = Scrap(timestamp: timestamp, filename: filename, document: document)
-
-                    group.addTask {
-                        let success = await withCheckedContinuation { continuation in
-                            document.open { success in
-                                continuation.resume(returning: success)
-                            }
-                        }
-                        return (scrap, success)
-                    }
-                }
-
-                // Collect results into array
-                var results: [Scrap] = []
-                for await (scrap, success) in group {
-                    if success {
-                        results.append(scrap)
-                    } else {
-                        print("Error: Failed to open scrap: \(scrap.filename)")
-                    }
-                }
-                return results
-            }
+            guard let scrapFiles = try await fileStore.enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
+            let loadedScraps = await ScrapDocumentLoader.openScraps(at: scrapFiles)
 
             await replaceLoadedScraps(with: loadedScraps)
         } catch {
@@ -345,7 +162,7 @@ class DocumentManager: ObservableObject {
 
     @discardableResult
     func createNewScrap() async -> Scrap? {
-        guard let documentsURL = documentsDirectoryURL else {
+        guard let documentsURL = fileStore.documentsDirectoryURL else {
             print("Error: Could not get documents directory URL")
             return nil
         }
@@ -364,7 +181,7 @@ class DocumentManager: ObservableObject {
         var fileURL = documentsURL.appendingPathComponent(filename)
         while true {
             let inMemoryCollision = existingFilenames.contains(filename)
-            let onDiskCollision = inMemoryCollision ? false : await coordinatedFileExists(at: fileURL)
+            let onDiskCollision = inMemoryCollision ? false : await fileStore.coordinatedFileExists(at: fileURL)
             if !inMemoryCollision && !onDiskCollision { break }
             timestamp = timestamp.addingTimeInterval(1)
             filename = Scrap.generateFilename(for: timestamp)
@@ -395,19 +212,6 @@ class DocumentManager: ObservableObject {
         }
     }
 
-    // Best-effort coordinated existence probe: lets iCloud settle any in-flight
-    // rename/create on this URL before we decide the slot is free. Falls back to
-    // a direct check on coordinator error so we never block scrap creation.
-    private func coordinatedFileExists(at url: URL) async -> Bool {
-        do {
-            return try await Self.coordinateRead(at: url, options: []) { coordinatedURL in
-                FileManager.default.fileExists(atPath: coordinatedURL.path)
-            }
-        } catch {
-            return FileManager.default.fileExists(atPath: url.path)
-        }
-    }
-
     func saveLastCloseTime() {
         // Only run once per background event
         guard !hasBackgrounded else { return }
@@ -430,7 +234,7 @@ class DocumentManager: ObservableObject {
         // creating one that's actually warranted. Using local-calendar
         // `isSameDay` here aligns with how a human thinks about "today" — the
         // UTC-encoded filename is for stable, collision-free sorting only.
-        return Calendar.current.isDate(latestScrap.timestamp, inSameDayAs: Date()) == false
+        return ScrapCreationPolicy.shouldCreateNewScrap(latestTimestamp: latestScrap.timestamp)
     }
 
 
@@ -442,38 +246,11 @@ class DocumentManager: ObservableObject {
     }
 
     func saveDocument(_ scrap: Scrap) {
-        scrap.document.save(to: scrap.document.fileURL, for: .forOverwriting) { success in
-            if !success {
-                print("Error: Failed to save scrap: \(scrap.filename)")
-            } else {
-                Task { @MainActor in
-                    self.scheduleWidgetReload()
-                }
-            }
-        }
+        saveCoordinator.saveDocument(scrap)
     }
 
     func beginBackgroundSaveBarrier() {
-        let app = UIApplication.shared
-        // End any previously-outstanding task first so we only ever hold one.
-        if backgroundSaveTaskID != .invalid {
-            app.endBackgroundTask(backgroundSaveTaskID)
-            backgroundSaveTaskID = .invalid
-        }
-        backgroundSaveTaskID = app.beginBackgroundTask(withName: "SaveAllScraps") { [weak self] in
-            guard let self else { return }
-            if self.backgroundSaveTaskID != .invalid {
-                app.endBackgroundTask(self.backgroundSaveTaskID)
-                self.backgroundSaveTaskID = .invalid
-            }
-        }
-        saveAllDocuments { [weak self] in
-            guard let self else { return }
-            if self.backgroundSaveTaskID != .invalid {
-                app.endBackgroundTask(self.backgroundSaveTaskID)
-                self.backgroundSaveTaskID = .invalid
-            }
-        }
+        saveCoordinator.beginBackgroundSaveBarrier(for: scraps)
     }
 
     func saveAllDocuments(completion: (@MainActor @Sendable () -> Void)? = nil) {
@@ -481,60 +258,7 @@ class DocumentManager: ObservableObject {
         // caller can hold a UIBackgroundTask open until every async UIDocument.save
         // has actually written to disk — without this, the process can exit on
         // Cmd+Q before the last keystroke is persisted.
-        guard !scraps.isEmpty else {
-            completion?()
-            return
-        }
-
-        let group = DispatchGroup()
-        for scrap in scraps {
-            group.enter()
-            scrap.document.save(to: scrap.document.fileURL, for: .forOverwriting) { success in
-                if !success {
-                    print("Error: Failed to save scrap: \(scrap.filename)")
-                }
-                group.leave()
-            }
-        }
-
-        // Watchdog: if a UIDocument.save never invokes its completion (document in a
-        // bad state, coordinator deadlock), release the barrier anyway so we don't
-        // sit on the background task until the OS kills us (~30s).
-        let fired = OSAllocatedUnfairLock(initialState: false)
-        let fire: @MainActor @Sendable () -> Void = {
-            let shouldRun = fired.withLock { already -> Bool in
-                guard !already else { return false }
-                already = true
-                return true
-            }
-            if shouldRun {
-                WidgetCenter.shared.reloadTimelines(ofKind: "LatestScrapWidget")
-                completion?()
-            }
-        }
-
-        group.notify(queue: .main) {
-            // notify(queue: .main) lands on the main *thread* but not the main
-            // *actor*; assumeIsolated bridges that for Swift 6 isolation checking.
-            MainActor.assumeIsolated { fire() }
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
-            let wasStuck = fired.withLock { $0 == false }
-            if wasStuck {
-                print("Warning: saveAllDocuments watchdog fired after 20s — at least one save did not complete")
-            }
-            MainActor.assumeIsolated { fire() }
-        }
-    }
-
-    private func scheduleWidgetReload() {
-        widgetReloadWorkItem?.cancel()
-        let workItem = DispatchWorkItem {
-            WidgetCenter.shared.reloadTimelines(ofKind: "LatestScrapWidget")
-        }
-        widgetReloadWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: workItem)
+        saveCoordinator.saveAllDocuments(scraps, completion: completion)
     }
 
     private func deleteScrap(_ scrap: Scrap) async {
@@ -549,9 +273,7 @@ class DocumentManager: ObservableObject {
 
         if success {
             do {
-                try await Self.coordinateWrite(at: scrap.document.fileURL, options: .forDeleting) { url in
-                    try FileManager.default.removeItem(at: url)
-                }
+                try await fileStore.deleteFile(at: scrap.document.fileURL)
 
                 // Remove from array
                 self.scraps.removeAll { $0.id == scrap.id }
@@ -562,42 +284,22 @@ class DocumentManager: ObservableObject {
     }
 
     private func replaceLoadedScraps(with loadedScraps: [Scrap]) async {
-        let currentIDs = Set(scraps.map { $0.id })
-        let loadedIDs = Set(loadedScraps.map { $0.id })
+        let reconciliation = ScrapCollectionReconciler.reconcile(
+            currentScraps: scraps,
+            loadedScraps: loadedScraps
+        )
 
-        let addedScraps = loadedScraps
-            .filter { !currentIDs.contains($0.id) }
-            .sorted { $0.timestamp < $1.timestamp }
-        let removedScraps = scraps.filter { !loadedIDs.contains($0.id) }
-        // Freshly opened documents for scraps that already exist — close them after the diff.
-        let duplicateScraps = loadedScraps.filter { currentIDs.contains($0.id) }
+        for scrap in reconciliation.addedScraps { attachObserver(to: scrap.document) }
+        scraps = reconciliation.scraps
 
-        for scrap in addedScraps { attachObserver(to: scrap.document) }
-
-        scraps.removeAll { !loadedIDs.contains($0.id) }
-        for newScrap in addedScraps {
-            if let idx = scraps.firstIndex(where: { $0.timestamp > newScrap.timestamp }) {
-                scraps.insert(newScrap, at: idx)
-            } else {
-                scraps.append(newScrap)
-            }
-        }
-
-        await cleanupDocuments(for: removedScraps + duplicateScraps)
+        await cleanupDocuments(for: reconciliation.removedScraps + reconciliation.duplicateScraps)
     }
 
     private func cleanupDocuments(for scraps: [Scrap]) async {
         for scrap in scraps {
             removeObserver(for: scrap.document)
 
-            let document = scrap.document
-            guard document.documentState.contains(.closed) == false else { continue }
-
-            await withCheckedContinuation { continuation in
-                document.close { _ in
-                    continuation.resume()
-                }
-            }
+            await ScrapDocumentLoader.closeDocument(scrap.document)
         }
     }
 
@@ -626,59 +328,10 @@ class DocumentManager: ObservableObject {
         NotificationCenter.default.removeObserver(observer)
     }
 
-    // Note: the outer directory read lock from enumeratedScrapFiles() is dropped before the
-    // per-file move locks below are taken. A remote delete/rename slipping in between would
-    // make moveItem throw, which we log and skip. Legacy-filename normalisation is a
-    // one-shot migration, so per-file best-effort is acceptable rather than holding a
-    // directory-wide writer lock across every move.
-    private func normalizeLegacyScrapFiles(in contents: [URL]) async throws -> [URL] {
-        var normalizedFiles: [URL] = []
-
-        for fileURL in contents where fileURL.lastPathComponent.hasPrefix("scrap-") && fileURL.lastPathComponent.hasSuffix(".txt") {
-            guard Scrap.isLegacyFilename(fileURL.lastPathComponent) else {
-                normalizedFiles.append(fileURL)
-                continue
-            }
-
-            guard let legacyTimestamp = Scrap.parseTimestamp(from: fileURL.lastPathComponent) else {
-                normalizedFiles.append(fileURL)
-                continue
-            }
-
-            let normalizedURL = fileURL.deletingLastPathComponent()
-                .appendingPathComponent(Scrap.generateFilename(for: legacyTimestamp))
-
-            guard normalizedURL != fileURL else {
-                normalizedFiles.append(fileURL)
-                continue
-            }
-
-            guard FileManager.default.fileExists(atPath: normalizedURL.path) == false else {
-                print("Warning: Skipping scrap filename normalization because destination exists: \(normalizedURL.lastPathComponent)")
-                normalizedFiles.append(fileURL)
-                continue
-            }
-
-            do {
-                try await Self.coordinateMove(from: fileURL, to: normalizedURL)
-                normalizedFiles.append(normalizedURL)
-            } catch {
-                print("Warning: Failed to normalize legacy scrap filename \(fileURL.lastPathComponent): \(error)")
-                normalizedFiles.append(fileURL)
-            }
-        }
-
-        return normalizedFiles
-    }
-
     // Hops off the main actor for the syscall and assigns the result back on
     // main. Callable from init and from identity-change notifications.
     private func probeUbiquityAvailabilityAsync() async {
-        let url = await Task.detached(priority: .userInitiated) {
-            FileManager.default.url(forUbiquityContainerIdentifier: nil)
-        }.value
-        ubiquityContainerURL = url
-        iCloudAvailable = url != nil
+        iCloudAvailable = await fileStore.probeUbiquityAvailability()
     }
 
     private func probeUbiquityAvailability() {
@@ -724,12 +377,7 @@ class DocumentManager: ObservableObject {
     // re-materialise server-held files via the conflict-resolution path if needed.
     private func isSafelyEmpty(_ scrap: Scrap) -> Bool {
         let state = scrap.document.documentState
-        guard !state.contains(.progressAvailable),
-              !state.contains(.editingDisabled),
-              !state.contains(.inConflict) else {
-            return false
-        }
-        return scrap.document.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return ScrapCreationPolicy.isSafelyEmpty(text: scrap.document.text, documentState: state)
     }
 
     @discardableResult

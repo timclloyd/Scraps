@@ -112,7 +112,8 @@ struct ArchiveMinimapView: View {
 
         return ZStack {
             RoundedRectangle(cornerRadius: Theme.minimapViewportCornerRadius, style: .continuous)
-                .fill(Color(UIColor.white).opacity(colorScheme == .dark ? 0.1 : 0.1))
+                .fill(Color.white.opacity(colorScheme == .dark ? 0.275 : 0.065))
+                .blendMode(.plusLighter)
             RoundedRectangle(cornerRadius: Theme.minimapViewportCornerRadius, style: .continuous)
                 .stroke((Color(UIColor.systemGray2)), lineWidth: 1)
         }

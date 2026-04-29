@@ -264,6 +264,7 @@ struct MainView: View {
                 } completion: {
                     clearSearch()
                     documentManager.focusLatestScrap()
+                    requestLatestEditorFocus()
                 }
             }
 
