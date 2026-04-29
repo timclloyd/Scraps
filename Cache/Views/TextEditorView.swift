@@ -14,6 +14,10 @@
 import SwiftUI
 import AudioToolbox
 
+private enum TextEditorFeedback {
+    static let strikethroughSoundID: SystemSoundID = 1306
+}
+
 // MARK: - TextEditorView (Public SwiftUI Component)
 
 struct TextEditorView: UIViewRepresentable {
@@ -438,7 +442,7 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
             selectedRange = NSRange(location: lineRange.location + newContent.utf16.count, length: 0)
 
             UIImpactFeedbackGenerator(style: Theme.strikethroughHapticStyle).impactOccurred()
-            AudioServicesPlaySystemSound(Preferences.strikethroughSoundID)
+            AudioServicesPlaySystemSound(TextEditorFeedback.strikethroughSoundID)
 
             delegate?.textViewDidChange?(self)
 
