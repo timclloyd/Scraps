@@ -25,7 +25,7 @@ class DocumentManager: ObservableObject {
     private var hasBackgrounded = false
     private var isInitialLoad = true
 
-    private var fileStore = ScrapFileStore()
+    private let fileStore = ScrapFileStore()
     private let widgetReloadScheduler = WidgetReloadScheduler()
     private lazy var saveCoordinator = DocumentSaveCoordinator(widgetReloadScheduler: widgetReloadScheduler)
 

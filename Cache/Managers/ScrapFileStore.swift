@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 final class ScrapFileStore {
     private(set) var ubiquityContainerURL: URL?
 
