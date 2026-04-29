@@ -115,7 +115,7 @@ struct ArchiveMinimapView: View {
                 .fill(Color.white.opacity(colorScheme == .dark ? 0.275 : 0.065))
                 .blendMode(.plusLighter)
             RoundedRectangle(cornerRadius: Theme.minimapViewportCornerRadius, style: .continuous)
-                .stroke((Color(UIColor.systemGray2)), lineWidth: 1)
+                .stroke((Color(colorScheme == .dark ? UIColor.systemGray2 : UIColor.systemGray4)), lineWidth: 1)
         }
         .frame(width: width, height: indicatorHeight)
         .position(
