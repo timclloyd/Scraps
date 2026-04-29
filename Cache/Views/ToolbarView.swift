@@ -14,9 +14,11 @@ struct ToolbarView: View {
     var body: some View {
         HStack(spacing: 0) {
             Button(action: onToggleMode) {
-                Image(systemName: viewMode == .latest ? "archivebox" : "calendar")
+                Image(systemName: viewMode == .latest ? "calendar" : "text.badge.plus")
                     .font(.system(size: 20, weight: .regular))
                     .foregroundColor(Color(uiColor: .label))
+                    .contentTransition(.symbolEffect(.replace))
+                    .animation(.easeInOut(duration: 0.2), value: viewMode)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
             }
@@ -30,6 +32,8 @@ struct ToolbarView: View {
                 Image(systemName: viewMode == .search ? "checkmark" : "magnifyingglass")
                     .font(.system(size: 20, weight: .regular))
                     .foregroundColor(Color(uiColor: .label))
+                    .contentTransition(.symbolEffect(.replace))
+                    .animation(.easeInOut(duration: 0.2), value: viewMode)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
             }
