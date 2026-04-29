@@ -47,6 +47,10 @@ struct ArchiveMinimapView: View {
     let onScrubScrap: (String) -> Void
 
     @State private var activeDragSlice: Int? = nil
+    @State private var gestureStartY: CGFloat? = nil
+    @State private var isScrubbing: Bool = false
+
+    private let scrubActivationDistance: CGFloat = 8
 
     var body: some View {
         let slices = buildSlices()
@@ -85,22 +89,67 @@ struct ArchiveMinimapView: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         guard !slices.isEmpty, sliceHeight > 0 else { return }
-                        let clamped = min(max(value.location.y, 0), geometry.size.height - 0.001)
-                        let index = min(Int(clamped / sliceHeight), slices.count - 1)
+                        let startY = gestureStartY ?? value.location.y
+                        gestureStartY = startY
+
+                        let startIndex = sliceIndex(
+                            for: startY,
+                            sliceHeight: sliceHeight,
+                            sliceCount: slices.count,
+                            geometryHeight: geometry.size.height
+                        )
+                        if activeDragSlice == nil {
+                            activeDragSlice = startIndex
+                            onScrubScrap(slices[startIndex].id)
+                        }
+
+                        guard abs(value.location.y - startY) >= scrubActivationDistance else { return }
+                        isScrubbing = true
+
+                        let index = sliceIndex(
+                            for: value.location.y,
+                            sliceHeight: sliceHeight,
+                            sliceCount: slices.count,
+                            geometryHeight: geometry.size.height
+                        )
                         guard index != activeDragSlice else { return }
                         activeDragSlice = index
                         onScrubScrap(slices[index].id)
                     }
                     .onEnded { value in
-                        activeDragSlice = nil
+                        defer {
+                            activeDragSlice = nil
+                            gestureStartY = nil
+                            isScrubbing = false
+                        }
+
                         guard !slices.isEmpty, sliceHeight > 0 else { return }
-                        let clamped = min(max(value.location.y, 0), geometry.size.height - 0.001)
-                        let index = min(Int(clamped / sliceHeight), slices.count - 1)
-                        onTapScrap(slices[index].id)
+                        if isScrubbing {
+                            let index = sliceIndex(
+                                for: value.location.y,
+                                sliceHeight: sliceHeight,
+                                sliceCount: slices.count,
+                                geometryHeight: geometry.size.height
+                            )
+                            if index != activeDragSlice {
+                                onScrubScrap(slices[index].id)
+                            }
+                            onTapScrap(slices[index].id)
+                        } else {
+                            // Tap-like gestures already jumped on touch-down. Do
+                            // not animate again on lift; tiny finger drift can
+                            // otherwise reinterpret the target or re-anchor it.
+                            return
+                        }
                     }
             )
         }
         .frame(width: Theme.minimapTapWidth)
+    }
+
+    private func sliceIndex(for y: CGFloat, sliceHeight: CGFloat, sliceCount: Int, geometryHeight: CGFloat) -> Int {
+        let clamped = min(max(y, 0), geometryHeight - 0.001)
+        return min(Int(clamped / sliceHeight), sliceCount - 1)
     }
 
     private func viewportIndicator(_ viewport: ArchiveMinimapViewport, in height: CGFloat, stripCenterX: CGFloat) -> some View {
