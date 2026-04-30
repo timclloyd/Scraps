@@ -21,6 +21,7 @@ class DocumentManager: ObservableObject {
 
     private var documentObservers: [ObjectIdentifier: NSObjectProtocol] = [:]
     private var ubiquityIdentityObserver: NSObjectProtocol?
+    private var foregroundUpdateTask: Task<Void, Never>?
 
     private var hasBackgrounded = false
     private var isInitialLoad = true
@@ -151,10 +152,21 @@ class DocumentManager: ObservableObject {
 
     private func loadScraps() async {
         do {
-            guard let scrapFiles = try await fileStore.enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
-            let loadedScraps = await ScrapDocumentLoader.openScraps(at: scrapFiles)
+            guard let scrapFiles = try await fileStore.enumeratedScrapFiles() else { return }
+            let diskFilenames = Set(scrapFiles.map(\.lastPathComponent))
+            let currentFilenames = Set(scraps.map(\.filename))
+            let removedScraps = scraps.filter { !diskFilenames.contains($0.filename) }
+            let newFileURLs = scrapFiles.filter { !currentFilenames.contains($0.lastPathComponent) }
 
-            await replaceLoadedScraps(with: loadedScraps)
+            let newScraps = await ScrapDocumentLoader.openScraps(at: newFileURLs)
+            for scrap in newScraps { attachObserver(to: scrap.document) }
+
+            scraps = scraps
+                .filter { diskFilenames.contains($0.filename) }
+                + newScraps
+            scraps.sort { $0.timestamp < $1.timestamp }
+
+            await cleanupDocuments(for: removedScraps)
         } catch {
             print("Error enumerating scrap files: \(error)")
         }
@@ -341,8 +353,14 @@ class DocumentManager: ObservableObject {
     func checkForUpdates() {
         // Skip if we're still doing the initial load
         guard !isInitialLoad else { return }
+        guard foregroundUpdateTask == nil else { return }
 
-        Task {
+        foregroundUpdateTask = Task { [weak self] in
+            guard let self else { return }
+            defer { foregroundUpdateTask = nil }
+
+            await saveCoordinator.waitForPendingSaveAll()
+
             // Re-probe on foreground in case the user toggled iCloud Drive for
             // Scraps in Settings while the app was backgrounded.
             await probeUbiquityAvailabilityAsync()

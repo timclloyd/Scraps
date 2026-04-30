@@ -6,6 +6,8 @@ import UIKit
 final class DocumentSaveCoordinator {
     private let widgetReloadScheduler: WidgetReloadScheduler
     private var backgroundSaveTaskID: UIBackgroundTaskIdentifier = .invalid
+    private var activeSaveAllCount = 0
+    private var saveAllWaiters: [CheckedContinuation<Void, Never>] = []
 
     init(widgetReloadScheduler: WidgetReloadScheduler) {
         self.widgetReloadScheduler = widgetReloadScheduler
@@ -54,6 +56,8 @@ final class DocumentSaveCoordinator {
             return
         }
 
+        activeSaveAllCount += 1
+
         let group = DispatchGroup()
         for scrap in scraps {
             group.enter()
@@ -66,7 +70,8 @@ final class DocumentSaveCoordinator {
         }
 
         let fired = OSAllocatedUnfairLock(initialState: false)
-        let fire: @MainActor @Sendable () -> Void = { [weak widgetReloadScheduler] in
+        let fire: @MainActor @Sendable () -> Void = { [weak self, weak widgetReloadScheduler] in
+            guard let self else { return }
             let shouldRun = fired.withLock { already -> Bool in
                 guard !already else { return false }
                 already = true
@@ -75,6 +80,14 @@ final class DocumentSaveCoordinator {
             if shouldRun {
                 widgetReloadScheduler?.reloadImmediately()
                 completion?()
+                self.activeSaveAllCount -= 1
+                if self.activeSaveAllCount == 0 {
+                    let waiters = self.saveAllWaiters
+                    self.saveAllWaiters.removeAll()
+                    for waiter in waiters {
+                        waiter.resume()
+                    }
+                }
             }
         }
 
@@ -88,6 +101,14 @@ final class DocumentSaveCoordinator {
                 print("Warning: saveAllDocuments watchdog fired after 20s — at least one save did not complete")
             }
             MainActor.assumeIsolated { fire() }
+        }
+    }
+
+    func waitForPendingSaveAll() async {
+        guard activeSaveAllCount > 0 else { return }
+
+        await withCheckedContinuation { continuation in
+            saveAllWaiters.append(continuation)
         }
     }
 }
