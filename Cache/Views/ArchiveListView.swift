@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 import SmoothGradient
 
 private struct ScrapFramePreferenceKey: PreferenceKey {
@@ -17,6 +18,7 @@ private struct ScrapFramePreferenceKey: PreferenceKey {
 struct ArchiveListView: View {
     @EnvironmentObject var documentManager: DocumentManager
     @StateObject private var valenceIndex = ValenceIndex()
+    @StateObject private var archiveScrollViewStore = WeakScrollViewStore()
     @State private var visibleViewport: ArchiveMinimapViewport? = nil
     let keyboardHeight: CGFloat
     let editorFont: UIFont
@@ -30,7 +32,7 @@ struct ArchiveListView: View {
     var body: some View {
         ScrollViewReader { proxy in
             GeometryReader { viewportGeometry in
-                ZStack(alignment: .trailing) {
+                HStack(spacing: 0) {
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(Array(documentManager.scraps.reversed())) { scrap in
@@ -55,10 +57,10 @@ struct ArchiveListView: View {
                         }
                         .padding(.top, 2)
                         .padding(.bottom, Theme.textSize)
-                        .padding(.trailing, Theme.minimapWidth)
                     }
                     .coordinateSpace(name: Self.archiveScrollCoordinateSpace)
                     .background(Theme.archiveBackground)
+                    .background(ArchiveScrollViewAccessor(store: archiveScrollViewStore))
                     .scrollIndicators(.hidden)
                     .scrollDismissesKeyboard(.never)
                     .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
@@ -94,16 +96,15 @@ struct ArchiveListView: View {
                         hits: valenceIndex.hits,
                         visibleViewport: visibleViewport,
                         onTapScrap: { id in
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                proxy.scrollTo(id, anchor: .top)
-                            }
+                            scrollToArchiveScrap(id, proxy: proxy, animated: true)
                         },
                         onScrubScrap: { id in
-                            proxy.scrollTo(id, anchor: .top)
+                            scrollToArchiveScrap(id, proxy: proxy, animated: false)
                         }
                     )
                     .padding(.top, Theme.textSize + 2)
                     .padding(.bottom, Theme.bottomFadeHeight)
+                    .background(Theme.archiveBackground)
                 }
                 .onAppear {
                     valenceIndex.bind(to: documentManager)
@@ -147,5 +148,71 @@ struct ArchiveListView: View {
             topFraction: min(max(minFraction, 0), 1),
             heightFraction: min(max(maxFraction - minFraction, 0), 1)
         )
+    }
+
+    private func scrollToArchiveScrap(_ id: String, proxy: ScrollViewProxy, animated: Bool) {
+        archiveScrollViewStore.scrollView?.stopDeceleratingImmediately()
+
+        DispatchQueue.main.async {
+            if animated {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    proxy.scrollTo(id, anchor: .top)
+                }
+            } else {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    proxy.scrollTo(id, anchor: .top)
+                }
+            }
+        }
+    }
+}
+
+private final class WeakScrollViewStore: ObservableObject {
+    weak var scrollView: UIScrollView?
+}
+
+private struct ArchiveScrollViewAccessor: UIViewRepresentable {
+    let store: WeakScrollViewStore
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        updateScrollView(from: view)
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        updateScrollView(from: uiView)
+    }
+
+    private func updateScrollView(from view: UIView) {
+        DispatchQueue.main.async {
+            let resolvedScrollView = view.enclosingScrollView
+            if store.scrollView !== resolvedScrollView {
+                store.scrollView = resolvedScrollView
+            }
+        }
+    }
+}
+
+private extension UIView {
+    var enclosingScrollView: UIScrollView? {
+        var view = superview
+        while let current = view {
+            if let scrollView = current as? UIScrollView {
+                return scrollView
+            }
+            view = current.superview
+        }
+        return nil
+    }
+}
+
+private extension UIScrollView {
+    func stopDeceleratingImmediately() {
+        setContentOffset(contentOffset, animated: false)
+        layer.removeAllAnimations()
     }
 }
