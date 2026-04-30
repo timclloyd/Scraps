@@ -4,7 +4,6 @@
 //
 
 import SwiftUI
-import UIKit
 import SmoothGradient
 
 private struct ScrapFramePreferenceKey: PreferenceKey {
@@ -60,7 +59,7 @@ struct ArchiveListView: View {
                     }
                     .coordinateSpace(name: Self.archiveScrollCoordinateSpace)
                     .background(Theme.archiveBackground)
-                    .background(ArchiveScrollViewAccessor(store: archiveScrollViewStore))
+                    .background(ScrollViewAccessor(store: archiveScrollViewStore))
                     .scrollIndicators(.hidden)
                     .scrollDismissesKeyboard(.never)
                     .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
@@ -166,53 +165,5 @@ struct ArchiveListView: View {
                 }
             }
         }
-    }
-}
-
-private final class WeakScrollViewStore: ObservableObject {
-    weak var scrollView: UIScrollView?
-}
-
-private struct ArchiveScrollViewAccessor: UIViewRepresentable {
-    let store: WeakScrollViewStore
-
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
-        view.isUserInteractionEnabled = false
-        updateScrollView(from: view)
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        updateScrollView(from: uiView)
-    }
-
-    private func updateScrollView(from view: UIView) {
-        DispatchQueue.main.async {
-            let resolvedScrollView = view.enclosingScrollView
-            if store.scrollView !== resolvedScrollView {
-                store.scrollView = resolvedScrollView
-            }
-        }
-    }
-}
-
-private extension UIView {
-    var enclosingScrollView: UIScrollView? {
-        var view = superview
-        while let current = view {
-            if let scrollView = current as? UIScrollView {
-                return scrollView
-            }
-            view = current.superview
-        }
-        return nil
-    }
-}
-
-private extension UIScrollView {
-    func stopDeceleratingImmediately() {
-        setContentOffset(contentOffset, animated: false)
-        layer.removeAllAnimations()
     }
 }
