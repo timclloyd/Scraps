@@ -57,27 +57,6 @@ enum Theme {
     static let panelBorderColor = UIColor.systemGray5
     static let separatorColor = UIColor.systemGray2
     
-    static func highlightColor(for traitCollection: UITraitCollection) -> UIColor {
-        UIColor { traitCollection in
-            switch traitCollection.userInterfaceStyle {
-            case .dark:
-                return UIColor(
-                    hue: 23/360,
-                    saturation: 0.6,
-                    brightness: 0.35,
-                    alpha: 1.0
-                )
-            default:
-                return UIColor(
-                    hue: 24/360,
-                    saturation: 0.17,
-                    brightness: 1.0,
-                    alpha: 1.0
-                )
-            }
-        }
-    }
-    
     static let searchHighlightColor = UIColor { traitCollection in
         switch traitCollection.userInterfaceStyle {
         case .dark:
@@ -96,26 +75,7 @@ enum Theme {
         }
     }
 
-    static func cursorColor(for traitCollection: UITraitCollection) -> UIColor {
-        UIColor { traitCollection in
-            switch traitCollection.userInterfaceStyle {
-            case .dark:
-                return UIColor(
-                    hue: 23/360,
-                    saturation: 0.6,
-                    brightness: 1.0,
-                    alpha: 1.0
-                )
-            default:
-                return UIColor(
-                    hue: 23/360,
-                    saturation: 0.8,
-                    brightness: 1.0,
-                    alpha: 1.0
-                )
-            }
-        }
-    }
+    static let textInputTintColor = UIColor.label
 
     // Background of focused scrap
     static func focusBackgroundColor(for traitCollection: UITraitCollection) -> UIColor {

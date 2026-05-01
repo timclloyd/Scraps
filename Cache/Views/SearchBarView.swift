@@ -29,6 +29,7 @@ struct SearchBarView: View {
 
             TextField("Search...", text: $query)
                 .font(.custom(Theme.font, size: Theme.textSize))
+                .tint(Color(uiColor: Theme.textInputTintColor))
                 .focused($isFocused)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)

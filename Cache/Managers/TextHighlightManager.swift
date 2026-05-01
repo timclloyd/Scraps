@@ -90,8 +90,10 @@ class TextHighlightManager: NSLayoutManager {
     }
 
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
-        super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
-        guard !searchQuery.isEmpty, let storage = textStorage, !textContainers.isEmpty else { return }
+        guard !searchQuery.isEmpty, let storage = textStorage, !textContainers.isEmpty else {
+            super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
+            return
+        }
 
         let container = textContainers[0]
         let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
@@ -99,7 +101,51 @@ class TextHighlightManager: NSLayoutManager {
 
         let inactiveColour = Theme.searchHighlightColor
         let activeColour = Theme.searchActiveHighlightColor
+        let matches = searchMatches(in: text, visibleCharacterRange: charRange)
 
+        var nextGlyphLocation = glyphsToShow.location
+        for match in matches {
+            let matchGlyphRange = glyphRange(forCharacterRange: match.range, actualCharacterRange: nil)
+            let visibleMatchGlyphRange = NSIntersectionRange(matchGlyphRange, glyphsToShow)
+            guard visibleMatchGlyphRange.length > 0 else { continue }
+
+            if nextGlyphLocation < visibleMatchGlyphRange.location {
+                let normalRange = NSRange(
+                    location: nextGlyphLocation,
+                    length: visibleMatchGlyphRange.location - nextGlyphLocation
+                )
+                super.drawBackground(forGlyphRange: normalRange, at: origin)
+            }
+
+            nextGlyphLocation = max(nextGlyphLocation, visibleMatchGlyphRange.upperBound)
+        }
+
+        if nextGlyphLocation < glyphsToShow.upperBound {
+            let normalRange = NSRange(
+                location: nextGlyphLocation,
+                length: glyphsToShow.upperBound - nextGlyphLocation
+            )
+            super.drawBackground(forGlyphRange: normalRange, at: origin)
+        }
+
+        for match in matches {
+            let colour = match.isActive ? activeColour : inactiveColour
+            let matchGlyphRange = glyphRange(forCharacterRange: match.range, actualCharacterRange: nil)
+
+            enumerateEnclosingRects(
+                forGlyphRange: matchGlyphRange,
+                withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0),
+                in: container
+            ) { rect, _ in
+                let adjusted = rect.offsetBy(dx: origin.x, dy: origin.y).insetBy(dx: -1, dy: 0)
+                colour.setFill()
+                UIBezierPath(roundedRect: adjusted, cornerRadius: 2).fill()
+            }
+        }
+    }
+
+    private func searchMatches(in text: NSString, visibleCharacterRange charRange: NSRange) -> [(range: NSRange, isActive: Bool)] {
+        var matches: [(range: NSRange, isActive: Bool)] = []
         var searchRange = charRange
         while searchRange.length > 0 {
             let matchRange = text.range(of: searchQuery, options: .caseInsensitive, range: searchRange)
@@ -112,21 +158,11 @@ class TextHighlightManager: NSLayoutManager {
                 isActive = false
             }
 
-            let colour = isActive ? activeColour : inactiveColour
-            let matchGlyphRange = glyphRange(forCharacterRange: matchRange, actualCharacterRange: nil)
-
-            enumerateEnclosingRects(
-                forGlyphRange: matchGlyphRange,
-                withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0),
-                in: container
-            ) { rect, _ in
-                let adjusted = rect.offsetBy(dx: origin.x, dy: origin.y).insetBy(dx: -1, dy: 0)
-                colour.setFill()
-                UIBezierPath(roundedRect: adjusted, cornerRadius: 2).fill()
-            }
+            matches.append((range: matchRange, isActive: isActive))
 
             let next = matchRange.upperBound
             searchRange = NSRange(location: next, length: charRange.upperBound - next)
         }
+        return matches
     }
 }

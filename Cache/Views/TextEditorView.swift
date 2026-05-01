@@ -329,8 +329,7 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
             .underlineStyle: NSUnderlineStyle.single.rawValue
         ]
 
-        // Custom cursor color to match accent color scheme
-        tintColor = Theme.cursorColor(for: UITraitCollection.current)
+        tintColor = Theme.textInputTintColor
 
         // Disable spell check to avoid red underlines (visual clutter)
         // but keep autocorrect suggestions for better typing experience
