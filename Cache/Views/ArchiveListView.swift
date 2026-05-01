@@ -26,6 +26,7 @@ struct ArchiveListView: View {
     var activeMatchScrapID: String? = nil
     var activeMatchRange: NSRange? = nil
     @Binding var showsPreferences: Bool
+    let toolbarHeight: CGFloat
 
     private static let archiveScrollCoordinateSpace = "ArchiveScrollCoordinateSpace"
 
@@ -63,7 +64,7 @@ struct ArchiveListView: View {
                     .background(ScrollViewAccessor(store: archiveScrollViewStore))
                     .scrollIndicators(.hidden)
                     .scrollDismissesKeyboard(.never)
-                    .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
+                    .contentMargins(.bottom, keyboardHeight + bottomToolbarHeight, for: .scrollContent)
                     .ignoresSafeArea(edges: .bottom)
                     .overlay(alignment: .top) {
                         SmoothLinearGradient(
@@ -87,7 +88,7 @@ struct ArchiveListView: View {
                     .onPreferenceChange(ScrapFramePreferenceKey.self) { frames in
                         visibleViewport = makeVisibleViewport(
                             from: frames,
-                            viewportHeight: viewportGeometry.size.height
+                            viewportHeight: max(viewportGeometry.size.height - bottomToolbarHeight, 0)
                         )
                     }
 
@@ -103,35 +104,16 @@ struct ArchiveListView: View {
                         }
                     )
                     .padding(.top, Theme.textSize + 2)
-                    .padding(.bottom, Theme.bottomFadeHeight)
+                    .padding(.bottom, Theme.bottomFadeHeight + bottomToolbarHeight)
                     .background(Theme.archiveBackground)
                 }
-                .overlay(alignment: .bottomTrailing) {
-                    let searchButtonCenterTrailingInset = viewportGeometry.size.width / 6
-                    let settingsButtonTrailingPadding = max(searchButtonCenterTrailingInset - 22, 0)
-
-                    if !showsPreferences {
-                        Button {
-                            withAnimation(Theme.navigationIn) {
-                                showsPreferences = true
-                            }
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        } label: {
-                            Image(systemName: "slider.vertical.3")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(Color(uiColor: .label))
-                                .frame(width: 44, height: 44)
-                                .background(.regularMaterial, in: Circle())
-                                .overlay {
-                                    Circle()
-                                        .stroke(Color(Theme.panelBorderColor), lineWidth: 0.5)
-                                }
-                                .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Preferences")
-                        .padding(.trailing, settingsButtonTrailingPadding)
-                        .padding(.bottom, max(keyboardHeight, 0) + 16)
+                .opacity(showsPreferences ? 0 : 1)
+                .overlay(alignment: .bottom) {
+                    if showsBottomToolbar {
+                        bottomToolbar
+                            .frame(height: toolbarHeight)
+                            .background(Theme.archiveBackground)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
                 .overlay {
@@ -151,6 +133,39 @@ struct ArchiveListView: View {
                     valenceIndex.bind(to: documentManager)
                 }
             }
+        }
+    }
+
+    private var bottomToolbarHeight: CGFloat {
+        showsBottomToolbar ? toolbarHeight : 0
+    }
+
+    private var showsBottomToolbar: Bool {
+        viewMode == .archive && !showsPreferences
+    }
+
+    private var bottomToolbar: some View {
+        HStack(spacing: 0) {
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Button {
+                withAnimation(Theme.navigationIn) {
+                    showsPreferences = true
+                }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                Image(systemName: "gear")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(Color(uiColor: .label))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Highlights")
         }
     }
 

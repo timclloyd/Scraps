@@ -64,6 +64,10 @@ struct MainView: View {
         viewMode == .latest ? Theme.latestPanelBackground : Theme.archiveBackground
     }
 
+    private func archiveBottomToolbarHeight(for geometry: GeometryProxy) -> CGFloat {
+        viewMode == .archive && !showsPreferences ? geometry.safeAreaInsets.top : 0
+    }
+
     private var activeMatch: (scrapID: String, range: NSRange)? {
         guard !searchMatches.isEmpty else { return nil }
         return searchMatches[currentMatchIndex]
@@ -84,7 +88,8 @@ struct MainView: View {
                         searchQuery: searchQuery,
                         activeMatchScrapID: activeMatch?.scrapID,
                         activeMatchRange: activeMatch?.range,
-                        showsPreferences: $showsPreferences
+                        showsPreferences: $showsPreferences,
+                        toolbarHeight: geometry.safeAreaInsets.top
                     )
 
                     LatestScrapPanelView(
@@ -115,7 +120,7 @@ struct MainView: View {
                         )
                         .frame(height: Theme.bottomFadeHeight)
                     }
-                    .padding(.bottom, keyboardTracker.height)
+                    .padding(.bottom, keyboardTracker.height + archiveBottomToolbarHeight(for: geometry))
                     .ignoresSafeArea(edges: .bottom)
                     .allowsHitTesting(false)
                 }
