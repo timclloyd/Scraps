@@ -64,7 +64,7 @@ struct ArchiveListView: View {
                     .background(ScrollViewAccessor(store: archiveScrollViewStore))
                     .scrollIndicators(.hidden)
                     .scrollDismissesKeyboard(.never)
-                    .contentMargins(.bottom, keyboardHeight + bottomToolbarHeight, for: .scrollContent)
+                    .contentMargins(.bottom, keyboardHeight + toolbarHeight, for: .scrollContent)
                     .ignoresSafeArea(edges: .bottom)
                     .overlay(alignment: .top) {
                         SmoothLinearGradient(
@@ -88,7 +88,7 @@ struct ArchiveListView: View {
                     .onPreferenceChange(ScrapFramePreferenceKey.self) { frames in
                         visibleViewport = makeVisibleViewport(
                             from: frames,
-                            viewportHeight: max(viewportGeometry.size.height - bottomToolbarHeight, 0)
+                            viewportHeight: max(viewportGeometry.size.height - toolbarHeight, 0)
                         )
                     }
 
@@ -104,13 +104,13 @@ struct ArchiveListView: View {
                         }
                     )
                     .padding(.top, Theme.textSize + 2)
-                    .padding(.bottom, Theme.bottomFadeHeight + bottomToolbarHeight)
+                    .padding(.bottom, Theme.bottomFadeHeight + toolbarHeight)
                     .background(Theme.archiveBackground)
                 }
                 .opacity(showsPreferences ? 0 : 1)
                 .overlay(alignment: .bottom) {
                     if showsBottomToolbar {
-                        bottomToolbar
+                        bottomToolbar(proxy: proxy)
                             .frame(height: toolbarHeight)
                             .background(Theme.archiveBackground)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -136,18 +136,25 @@ struct ArchiveListView: View {
         }
     }
 
-    private var bottomToolbarHeight: CGFloat {
-        showsBottomToolbar ? toolbarHeight : 0
-    }
-
     private var showsBottomToolbar: Bool {
         viewMode == .archive && !showsPreferences
     }
 
-    private var bottomToolbar: some View {
+    private func bottomToolbar(proxy: ScrollViewProxy) -> some View {
         HStack(spacing: 0) {
-            Color.clear
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Button {
+                scrollToRandomScrap(proxy: proxy)
+            } label: {
+                Image(systemName: "dice")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(Color(uiColor: .label))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Random scrap")
+            .disabled(documentManager.scraps.isEmpty)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -166,6 +173,7 @@ struct ArchiveListView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Highlights")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -222,5 +230,11 @@ struct ArchiveListView: View {
                 }
             }
         }
+    }
+
+    private func scrollToRandomScrap(proxy: ScrollViewProxy) {
+        guard let scrap = documentManager.scraps.randomElement() else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        scrollToArchiveScrap(scrap.id, proxy: proxy, animated: true)
     }
 }

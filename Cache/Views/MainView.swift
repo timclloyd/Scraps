@@ -65,7 +65,7 @@ struct MainView: View {
     }
 
     private func archiveBottomToolbarHeight(for geometry: GeometryProxy) -> CGFloat {
-        viewMode == .archive && !showsPreferences ? geometry.safeAreaInsets.top : 0
+        viewMode == .archive ? geometry.safeAreaInsets.top : 0
     }
 
     private var activeMatch: (scrapID: String, range: NSRange)? {
@@ -147,11 +147,10 @@ struct MainView: View {
                 ToolbarView(
                     viewMode: viewMode,
                     topHeight: geometry.safeAreaInsets.top,
+                    hidesButtons: showsPreferences,
                     onToggleMode: toggleViewMode,
                     onToggleSearch: toggleSearch
                 )
-                .opacity(showsPreferences ? 0 : 1)
-                .allowsHitTesting(!showsPreferences)
                 .ignoresSafeArea(edges: .top)
 
                 if !documentManager.iCloudAvailable {

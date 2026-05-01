@@ -30,12 +30,13 @@ struct PreferencesView: View {
     }
 
     private var header: some View {
-        ZStack {
-            Text("Highlights")
-                .font(.headline)
+        GeometryReader { geometry in
+            let titleWidth = min(geometry.size.width / 2, 220)
 
-            HStack {
-                Spacer()
+            ZStack {
+                Text("Highlights")
+                    .font(.headline)
+                    .frame(width: titleWidth)
 
                 Button {
                     dismissKeyboard()
@@ -43,14 +44,23 @@ struct PreferencesView: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     onDismiss()
                 } label: {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 20, weight: .regular))
-                        .foregroundColor(Color(uiColor: .label))
-                        .frame(width: 44, height: 44)
+                    HStack {
+                        Spacer()
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 20, weight: .regular))
+                            .foregroundColor(Color(uiColor: .label))
+                            .frame(width: 44, height: 44)
+                            .padding(.trailing, max(searchButtonCenterTrailingInset - 22, 0))
+                    }
+                    .frame(
+                        width: max((geometry.size.width - titleWidth) / 2, 44),
+                        height: 44
+                    )
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Done")
-                .padding(.trailing, max(searchButtonCenterTrailingInset - 22, 0))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             }
         }
         .frame(height: 44)

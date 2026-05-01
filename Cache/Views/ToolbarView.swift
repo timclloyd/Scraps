@@ -8,6 +8,7 @@ import SwiftUI
 struct ToolbarView: View {
     let viewMode: ViewMode
     let topHeight: CGFloat
+    var hidesButtons = false
     let onToggleMode: () -> Void
     let onToggleSearch: () -> Void
 
@@ -26,6 +27,8 @@ struct ToolbarView: View {
             }
             .buttonStyle(.plain)
             .padding(.leading, -6) // adjust optical horizontal alignment
+            .opacity(hidesButtons ? 0 : 1)
+            .allowsHitTesting(!hidesButtons)
 
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -40,6 +43,8 @@ struct ToolbarView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .opacity(hidesButtons ? 0 : 1)
+            .allowsHitTesting(!hidesButtons)
         }
         .frame(height: topHeight)
         .background(Theme.archiveBackground)
