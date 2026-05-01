@@ -25,6 +25,7 @@ struct ArchiveListView: View {
     var searchQuery: String = ""
     var activeMatchScrapID: String? = nil
     var activeMatchRange: NSRange? = nil
+    @Binding var showsPreferences: Bool
 
     private static let archiveScrollCoordinateSpace = "ArchiveScrollCoordinateSpace"
 
@@ -104,6 +105,47 @@ struct ArchiveListView: View {
                     .padding(.top, Theme.textSize + 2)
                     .padding(.bottom, Theme.bottomFadeHeight)
                     .background(Theme.archiveBackground)
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    let searchButtonCenterTrailingInset = viewportGeometry.size.width / 6
+                    let settingsButtonTrailingPadding = max(searchButtonCenterTrailingInset - 22, 0)
+
+                    if !showsPreferences {
+                        Button {
+                            withAnimation(Theme.navigationIn) {
+                                showsPreferences = true
+                            }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        } label: {
+                            Image(systemName: "slider.vertical.3")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(Color(uiColor: .label))
+                                .frame(width: 44, height: 44)
+                                .background(.regularMaterial, in: Circle())
+                                .overlay {
+                                    Circle()
+                                        .stroke(Color(Theme.panelBorderColor), lineWidth: 0.5)
+                                }
+                                .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Preferences")
+                        .padding(.trailing, settingsButtonTrailingPadding)
+                        .padding(.bottom, max(keyboardHeight, 0) + 16)
+                    }
+                }
+                .overlay {
+                    if showsPreferences {
+                        PreferencesView(searchButtonCenterTrailingInset: viewportGeometry.size.width / 6) {
+                            withAnimation(Theme.navigationOut) {
+                                showsPreferences = false
+                            }
+                        }
+                        .environmentObject(documentManager)
+                        .transition(.move(edge: .bottom))
+                        .zIndex(1)
+                        .ignoresSafeArea(edges: .bottom)
+                    }
                 }
                 .onAppear {
                     valenceIndex.bind(to: documentManager)

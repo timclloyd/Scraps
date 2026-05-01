@@ -54,6 +54,7 @@ struct MainView: View {
     @State private var searchMatches: [(scrapID: String, range: NSRange)] = []
     @State private var currentMatchIndex: Int = 0
     @State private var latestFocusRequestID = 0
+    @State private var showsPreferences = false
 
     private var editorFont: UIFont {
         UIFont(name: Theme.font, size: Theme.textSize) ?? UIFont.systemFont(ofSize: Theme.textSize)
@@ -82,7 +83,8 @@ struct MainView: View {
                         viewMode: viewMode,
                         searchQuery: searchQuery,
                         activeMatchScrapID: activeMatch?.scrapID,
-                        activeMatchRange: activeMatch?.range
+                        activeMatchRange: activeMatch?.range,
+                        showsPreferences: $showsPreferences
                     )
 
                     LatestScrapPanelView(
@@ -143,6 +145,8 @@ struct MainView: View {
                     onToggleMode: toggleViewMode,
                     onToggleSearch: toggleSearch
                 )
+                .opacity(showsPreferences ? 0 : 1)
+                .allowsHitTesting(!showsPreferences)
                 .ignoresSafeArea(edges: .top)
 
                 if !documentManager.iCloudAvailable {

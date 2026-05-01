@@ -8,6 +8,10 @@ final class ScrapFileStore {
         ubiquityContainerURL?.appendingPathComponent("Documents")
     }
 
+    var settingsFileURL: URL? {
+        documentsDirectoryURL?.appendingPathComponent("scraps-settings.txt")
+    }
+
     func probeUbiquityAvailability() async -> Bool {
         let url = await Task.detached(priority: .userInitiated) {
             FileManager.default.url(forUbiquityContainerIdentifier: nil)
@@ -54,6 +58,37 @@ final class ScrapFileStore {
         }
     }
 
+    func loadHighlightSettings() async -> HighlightSettings {
+        guard let settingsFileURL else { return .default }
+
+        do {
+            let exists = try await ensureDocumentsDirectoryAndCheckFileExists(at: settingsFileURL)
+            guard exists else {
+                try await saveHighlightSettings(.default)
+                return .default
+            }
+
+            let data = try await FileCoordinator.coordinateRead(at: settingsFileURL, options: []) { url in
+                try Data(contentsOf: url)
+            }
+            guard let text = String(data: data, encoding: .utf8) else { return .default }
+            return HighlightSettings(serialized: text)
+        } catch {
+            print("Warning: Failed to load highlight settings: \(error)")
+            return .default
+        }
+    }
+
+    func saveHighlightSettings(_ settings: HighlightSettings) async throws {
+        guard let settingsFileURL else { return }
+
+        _ = try await ensureDocumentsDirectoryAndCheckFileExists(at: settingsFileURL)
+        let data = Data(settings.serialized.utf8)
+        try await FileCoordinator.coordinateWrite(at: settingsFileURL, options: .forReplacing) { url in
+            try data.write(to: url, options: .atomic)
+        }
+    }
+
     // Note: the outer directory read lock from enumeratedScrapFiles() is dropped before the
     // per-file move locks below are taken. A remote delete/rename slipping in between would
     // make moveItem throw, which we log and skip. Legacy-filename normalisation is a
@@ -97,5 +132,17 @@ final class ScrapFileStore {
         }
 
         return normalizedFiles
+    }
+
+    private func ensureDocumentsDirectoryAndCheckFileExists(at fileURL: URL) async throws -> Bool {
+        guard let documentsURL = documentsDirectoryURL else { return false }
+
+        if !FileManager.default.fileExists(atPath: documentsURL.path) {
+            try await FileCoordinator.coordinateWrite(at: documentsURL, options: []) { url in
+                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            }
+        }
+
+        return FileManager.default.fileExists(atPath: fileURL.path)
     }
 }

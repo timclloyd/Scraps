@@ -24,9 +24,9 @@ final class ValenceIndex: ObservableObject {
     private var documentCancellables: [String: AnyCancellable] = [:]
     private var pendingRecomputeIDs: Set<String> = []
     private var scrapsCancellable: AnyCancellable?
+    private var settingsCancellable: AnyCancellable?
     private weak var documentManager: DocumentManager?
-
-    private static let valenceKeywords: [HighlightKeyword] = HighlightPatterns.keywords
+    private var valenceKeywords: [HighlightKeyword] = HighlightSettings.default.keywords
 
     func bind(to manager: DocumentManager) {
         guard documentManager !== manager else { return }
@@ -36,6 +36,15 @@ final class ValenceIndex: ObservableObject {
             .sink { [weak self] scraps in
                 Task { @MainActor in
                     self?.rebuild(for: scraps)
+                }
+            }
+
+        settingsCancellable = manager.$highlightSettings
+            .sink { [weak self, weak manager] settings in
+                Task { @MainActor in
+                    guard let manager else { return }
+                    self?.valenceKeywords = settings.keywords
+                    self?.rebuild(for: manager.scraps)
                 }
             }
     }
@@ -49,7 +58,7 @@ final class ValenceIndex: ObservableObject {
         pendingRecomputeIDs.formIntersection(liveIDs)
 
         for scrap in scraps {
-            hits[scrap.id] = Self.computeHits(in: scrap.document.text)
+            hits[scrap.id] = computeHits(in: scrap.document.text)
 
             if documentCancellables[scrap.id] == nil {
                 let id = scrap.id
@@ -74,11 +83,11 @@ final class ValenceIndex: ObservableObject {
             guard let self else { return }
             self.pendingRecomputeIDs.remove(id)
             guard let document else { return }
-            self.hits[id] = Self.computeHits(in: document.text)
+            self.hits[id] = self.computeHits(in: document.text)
         }
     }
 
-    private static func computeHits(in text: String) -> [ValenceHit] {
+    private func computeHits(in text: String) -> [ValenceHit] {
         guard !text.isEmpty else { return [] }
         let range = NSRange(location: 0, length: (text as NSString).length)
         var located: [(location: Int, band: ValenceBand)] = []

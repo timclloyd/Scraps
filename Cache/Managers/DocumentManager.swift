@@ -8,6 +8,7 @@ class DocumentManager: ObservableObject {
     @Published var focusedScrapID: String?
     @Published var focusedScrapFilename: String?
     @Published var isReady = false
+    @Published var highlightSettings = HighlightSettings.default
     // iCloud ubiquity-container status. When `false`, the user is either signed out
     // of iCloud, has disabled iCloud Drive for this app, or the container hasn't
     // finished provisioning. Without surfacing this, the app silently shows an
@@ -22,6 +23,7 @@ class DocumentManager: ObservableObject {
     private var documentObservers: [ObjectIdentifier: NSObjectProtocol] = [:]
     private var ubiquityIdentityObserver: NSObjectProtocol?
     private var foregroundUpdateTask: Task<Void, Never>?
+    private var settingsSaveTask: Task<Void, Never>?
 
     private var hasBackgrounded = false
     private var isInitialLoad = true
@@ -56,6 +58,8 @@ class DocumentManager: ObservableObject {
                 isReady = true
                 return
             }
+
+            highlightSettings = await fileStore.loadHighlightSettings()
 
             // Step 1: Load existing scraps, prioritising the latest so the UI is interactive ASAP
             await loadScrapsInitial()
@@ -271,6 +275,42 @@ class DocumentManager: ObservableObject {
         // has actually written to disk — without this, the process can exit on
         // Cmd+Q before the last keystroke is persisted.
         saveCoordinator.saveAllDocuments(scraps, completion: completion)
+        Task { await saveHighlightSettingsNow() }
+    }
+
+    func updateHighlightSettings(_ settings: HighlightSettings) {
+        guard highlightSettings != settings else { return }
+        highlightSettings = settings
+        scheduleHighlightSettingsSave()
+    }
+
+    func flushHighlightSettingsSave() {
+        Task { await saveHighlightSettingsNow() }
+    }
+
+    private func scheduleHighlightSettingsSave() {
+        settingsSaveTask?.cancel()
+        settingsSaveTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .milliseconds(500))
+            } catch {
+                return
+            }
+            guard let self else { return }
+            await self.saveHighlightSettingsNow()
+        }
+    }
+
+    private func saveHighlightSettingsNow() async {
+        settingsSaveTask?.cancel()
+        settingsSaveTask = nil
+
+        do {
+            try await fileStore.saveHighlightSettings(highlightSettings)
+            widgetReloadScheduler.scheduleReload()
+        } catch {
+            print("Warning: Failed to save highlight settings: \(error)")
+        }
     }
 
     private func deleteScrap(_ scrap: Scrap) async {
@@ -365,6 +405,8 @@ class DocumentManager: ObservableObject {
             // Scraps in Settings while the app was backgrounded.
             await probeUbiquityAvailabilityAsync()
             guard iCloudAvailable else { return }
+
+            highlightSettings = await fileStore.loadHighlightSettings()
 
             await loadScraps()
 
@@ -508,5 +550,6 @@ class DocumentManager: ObservableObject {
         if let ubiquityIdentityObserver {
             NotificationCenter.default.removeObserver(ubiquityIdentityObserver)
         }
+        settingsSaveTask?.cancel()
     }
 }

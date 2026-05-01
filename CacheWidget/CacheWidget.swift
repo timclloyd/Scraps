@@ -11,6 +11,72 @@ private struct WidgetScrap {
     let text: String
 }
 
+private struct WidgetHighlightKeyword {
+    let regex: NSRegularExpression
+    let band: ValenceBand
+}
+
+private struct WidgetHighlightSettings {
+    let green: String
+    let blue: String
+    let red: String
+
+    static let `default` = WidgetHighlightSettings(
+        green: "idea",
+        blue: "todo\nremember",
+        red: "important"
+    )
+
+    var keywords: [WidgetHighlightKeyword] {
+        makeKeywords(from: green, band: .positive)
+            + makeKeywords(from: blue, band: .neutral)
+            + makeKeywords(from: red, band: .negative)
+    }
+
+    init(green: String, blue: String, red: String) {
+        self.green = green
+        self.blue = blue
+        self.red = red
+    }
+
+    init(serialized text: String) {
+        var sections: [String: [String]] = [:]
+        var currentSection: String?
+
+        for line in text.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("[") && trimmed.hasSuffix("]") {
+                currentSection = String(trimmed.dropFirst().dropLast()).lowercased()
+                sections[currentSection!, default: []] = []
+            } else if let currentSection {
+                sections[currentSection, default: []].append(line)
+            }
+        }
+
+        self.green = Self.trimStoredSection(sections["green"]) ?? Self.default.green
+        self.blue = Self.trimStoredSection(sections["blue"]) ?? Self.default.blue
+        self.red = Self.trimStoredSection(sections["red"]) ?? Self.default.red
+    }
+
+    private static func trimStoredSection(_ lines: [String]?) -> String? {
+        guard var lines else { return nil }
+        while lines.first?.isEmpty == true { lines.removeFirst() }
+        while lines.last?.isEmpty == true { lines.removeLast() }
+        return lines.joined(separator: "\n")
+    }
+
+    private func makeKeywords(from text: String, band: ValenceBand) -> [WidgetHighlightKeyword] {
+        text.components(separatedBy: .newlines).compactMap { rawTerm in
+            let term = rawTerm.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !term.isEmpty else { return nil }
+            let escaped = NSRegularExpression.escapedPattern(for: term)
+            let pattern = "\\b\(escaped)[a-zA-Z]*"
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
+            return WidgetHighlightKeyword(regex: regex, band: band)
+        }
+    }
+}
+
 private struct LatestScrapProvider: TimelineProvider {
     func placeholder(in context: Context) -> LatestScrapEntry {
         LatestScrapEntry(
@@ -65,7 +131,19 @@ private enum LatestScrapStore {
         return WidgetScrap(timestamp: latest.timestamp, text: text)
     }
 
-    private static func parseTimestamp(from filename: String) -> Date? {
+    static func loadHighlightSettings() -> WidgetHighlightSettings {
+        guard let settingsURL = FileManager.default
+            .url(forUbiquityContainerIdentifier: ubiquityContainerIdentifier)?
+            .appendingPathComponent("Documents")
+            .appendingPathComponent("scraps-settings.txt"),
+              let text = try? String(contentsOf: settingsURL, encoding: .utf8) else {
+            return .default
+        }
+
+        return WidgetHighlightSettings(serialized: text)
+    }
+
+    static func parseTimestamp(from filename: String) -> Date? {
         guard filename.hasPrefix("scrap-"), filename.hasSuffix(".txt") else { return nil }
 
         let timestampString = filename
@@ -259,7 +337,7 @@ private enum WidgetTextDecorator {
         }
         attributed.addAttributes(baseAttributes, range: fullRange)
 
-        for keyword in HighlightPatterns.keywords {
+        for keyword in LatestScrapStore.loadHighlightSettings().keywords {
             keyword.regex.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
                 guard let range = match?.range,
                       let color = HighlightPatterns.highlightColor[keyword.band] else { return }
@@ -402,10 +480,12 @@ private enum SentimentStore {
             options: [.skipsHiddenFiles]
         )) ?? []
 
-        for url in fileURLs where url.pathExtension == "txt" {
+        let keywords = LatestScrapStore.loadHighlightSettings().keywords
+
+        for url in fileURLs where LatestScrapStore.parseTimestamp(from: url.lastPathComponent) != nil {
             guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
             let range = NSRange(location: 0, length: (text as NSString).length)
-            for keyword in HighlightPatterns.keywords {
+            for keyword in keywords {
                 counts[keyword.band, default: 0] += keyword.regex.numberOfMatches(in: text, options: [], range: range)
             }
         }
