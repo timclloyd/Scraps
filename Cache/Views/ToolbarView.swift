@@ -46,7 +46,7 @@ struct ToolbarView: View {
     }
 
     private func modeToggleIconName(for date: Date) -> String {
-        guard viewMode != .latest else { return "calendar" }
+        guard viewMode != .latest else { return "clock" }
 
         let day = Calendar.current.component(.day, from: date)
         return "\(day).calendar"
