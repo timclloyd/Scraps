@@ -54,6 +54,7 @@ struct MainView: View {
     @State private var searchMatches: [(scrapID: String, range: NSRange)] = []
     @State private var currentMatchIndex: Int = 0
     @State private var latestFocusRequestID = 0
+    @State private var showsPreferences = false
 
     private var editorFont: UIFont {
         UIFont(name: Theme.font, size: Theme.textSize) ?? UIFont.systemFont(ofSize: Theme.textSize)
@@ -61,6 +62,10 @@ struct MainView: View {
 
     private var keyboardBackgroundColor: Color {
         viewMode == .latest ? Theme.latestPanelBackground : Theme.archiveBackground
+    }
+
+    private func archiveBottomToolbarHeight(for geometry: GeometryProxy) -> CGFloat {
+        viewMode == .archive ? geometry.safeAreaInsets.top : 0
     }
 
     private var activeMatch: (scrapID: String, range: NSRange)? {
@@ -82,7 +87,9 @@ struct MainView: View {
                         viewMode: viewMode,
                         searchQuery: searchQuery,
                         activeMatchScrapID: activeMatch?.scrapID,
-                        activeMatchRange: activeMatch?.range
+                        activeMatchRange: activeMatch?.range,
+                        showsPreferences: $showsPreferences,
+                        toolbarHeight: geometry.safeAreaInsets.top
                     )
 
                     LatestScrapPanelView(
@@ -94,28 +101,30 @@ struct MainView: View {
                         .offset(y: viewMode == .latest ? 0 : geometry.size.height)
                         .allowsHitTesting(viewMode == .latest)
 
-                    // Solid background behind keyboard to prevent text showing through
-                    VStack {
-                        Spacer()
-                        keyboardBackgroundColor
-                            .frame(height: keyboardTracker.height)
-                    }
-                    .allowsHitTesting(false)
-                    .ignoresSafeArea(edges: .bottom)
+                    if !showsPreferences {
+                        // Solid background behind keyboard to prevent text showing through
+                        VStack {
+                            Spacer()
+                            keyboardBackgroundColor
+                                .frame(height: keyboardTracker.height)
+                        }
+                        .allowsHitTesting(false)
+                        .ignoresSafeArea(edges: .bottom)
 
-                    // Bottom gradient — fades text above keyboard or screen bottom
-                    VStack {
-                        Spacer()
-                        SmoothLinearGradient(
-                            from: keyboardBackgroundColor.opacity(0),
-                            to: keyboardBackgroundColor.opacity(0.9),
-                            startPoint: .top, endPoint: .bottom, curve: .easeIn
-                        )
-                        .frame(height: Theme.bottomFadeHeight)
+                        // Bottom gradient — fades text above keyboard or screen bottom
+                        VStack {
+                            Spacer()
+                            SmoothLinearGradient(
+                                from: keyboardBackgroundColor.opacity(0),
+                                to: keyboardBackgroundColor.opacity(0.9),
+                                startPoint: .top, endPoint: .bottom, curve: .easeIn
+                            )
+                            .frame(height: Theme.bottomFadeHeight)
+                        }
+                        .padding(.bottom, keyboardTracker.height + archiveBottomToolbarHeight(for: geometry))
+                        .ignoresSafeArea(edges: .bottom)
+                        .allowsHitTesting(false)
                     }
-                    .padding(.bottom, keyboardTracker.height)
-                    .ignoresSafeArea(edges: .bottom)
-                    .allowsHitTesting(false)
                 }
                 .padding(.top, viewMode == .search ? 44 : 0)
                 .background(Theme.archiveBackground)
@@ -140,6 +149,7 @@ struct MainView: View {
                 ToolbarView(
                     viewMode: viewMode,
                     topHeight: geometry.safeAreaInsets.top,
+                    hidesButtons: showsPreferences,
                     onToggleMode: toggleViewMode,
                     onToggleSearch: toggleSearch
                 )

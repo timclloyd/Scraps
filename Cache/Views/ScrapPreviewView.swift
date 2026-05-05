@@ -64,6 +64,7 @@ struct ScrapPreviewView: UIViewRepresentable {
         if let lm = textView.textStorage.layoutManagers.first as? TextHighlightManager {
             lm.searchQuery = searchQuery
             lm.activeSearchRange = activeSearchRange
+            lm.highlightKeywords = documentManager.highlightSettings.keywords
         }
 
         return textView
@@ -79,6 +80,7 @@ struct ScrapPreviewView: UIViewRepresentable {
             lm.normalFont = font
             lm.searchQuery = searchQuery
             lm.activeSearchRange = activeSearchRange
+            lm.highlightKeywords = documentManager.highlightSettings.keywords
         }
         if uiView.font != font {
             uiView.font = font

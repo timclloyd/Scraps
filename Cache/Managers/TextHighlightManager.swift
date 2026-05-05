@@ -17,6 +17,12 @@ class TextHighlightManager: NSLayoutManager {
     var activeSearchRange: NSRange? {
         didSet { invalidateSearchHighlights() }
     }
+    var highlightKeywords: [HighlightKeyword] = HighlightSettings.default.keywords {
+        didSet {
+            guard keywordSignature(oldValue) != keywordSignature(highlightKeywords) else { return }
+            invalidateHighlightAttributes()
+        }
+    }
 
     private var isProcessing = false
 
@@ -35,29 +41,34 @@ class TextHighlightManager: NSLayoutManager {
         guard !isProcessing else { return }
         isProcessing = true
 
-        let text = textStorage.string
         // Process only the edited line(s) for performance (not the entire document).
         // Use mutableString for NSString ops to avoid an extra bridging hop.
         let processRange = textStorage.mutableString.lineRange(for: newCharRange)
 
+        restyle(textStorage, in: processRange)
+        isProcessing = false
+    }
+
+    private func restyle(_ textStorage: NSTextStorage, in range: NSRange) {
+        let text = textStorage.string
         textStorage.beginEditing()
 
         // Clear styling attributes from edited range, then restore foreground color to the
         // standard label color so struck-through gray doesn't linger if markers are removed
-        textStorage.removeAttribute(.backgroundColor, range: processRange)
-        textStorage.removeAttribute(.link, range: processRange)
-        textStorage.removeAttribute(.underlineStyle, range: processRange)
-        textStorage.removeAttribute(.strikethroughStyle, range: processRange)
-        textStorage.removeAttribute(.foregroundColor, range: processRange)
-        textStorage.addAttribute(.foregroundColor, value: UIColor.label, range: processRange)
+        textStorage.removeAttribute(.backgroundColor, range: range)
+        textStorage.removeAttribute(.link, range: range)
+        textStorage.removeAttribute(.underlineStyle, range: range)
+        textStorage.removeAttribute(.strikethroughStyle, range: range)
+        textStorage.removeAttribute(.foregroundColor, range: range)
+        textStorage.addAttribute(.foregroundColor, value: UIColor.label, range: range)
 
         // storageLength is invariant for the duration of this beginEditing/endEditing
         // block — addAttribute does not change length — so caching it is safe.
         let storageLength = textStorage.length
 
-        for keyword in HighlightPatterns.keywords {
+        for keyword in highlightKeywords {
             guard let color = HighlightPatterns.highlightColor[keyword.band] else { continue }
-            keyword.regex.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
+            keyword.regex.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
                 guard let range = match?.range, range.upperBound <= storageLength else { return }
                 textStorage.addAttribute(.backgroundColor, value: color, range: range)
             }
@@ -66,27 +77,40 @@ class TextHighlightManager: NSLayoutManager {
         // Detect URLs and make them tappable
         // Only add .link attribute - UITextView handles styling via linkTextAttributes
         if let urlDetector = HighlightPatterns.urlDetector {
-            urlDetector.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
+            urlDetector.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
                 guard let match, match.range.upperBound <= storageLength, let url = match.url else { return }
                 textStorage.addAttribute(.link, value: url, range: match.range)
             }
         }
 
         // Apply strikethrough for ~~text~~ patterns, markers and content included.
-        HighlightPatterns.strikeRegex?.enumerateMatches(in: text, options: [], range: processRange) { match, _, _ in
+        HighlightPatterns.strikeRegex?.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
             guard let matchRange = match?.range, matchRange.upperBound <= storageLength else { return }
             textStorage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: matchRange)
             textStorage.addAttribute(.foregroundColor, value: Theme.linkColor, range: matchRange)
         }
 
         textStorage.endEditing()
-        isProcessing = false
     }
 
     private func invalidateSearchHighlights() {
         guard let storage = textStorage, storage.length > 0 else { return }
         let fullGlyphRange = glyphRange(forCharacterRange: NSRange(location: 0, length: storage.length), actualCharacterRange: nil)
         invalidateDisplay(forGlyphRange: fullGlyphRange)
+    }
+
+    private func invalidateHighlightAttributes() {
+        guard let storage = textStorage, storage.length > 0 else { return }
+        let fullRange = NSRange(location: 0, length: storage.length)
+        guard !isProcessing else { return }
+        isProcessing = true
+        restyle(storage, in: fullRange)
+        isProcessing = false
+        invalidateDisplay(forCharacterRange: fullRange)
+    }
+
+    private func keywordSignature(_ keywords: [HighlightKeyword]) -> [String] {
+        keywords.map { "\($0.band):\($0.pattern)" }
     }
 
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {

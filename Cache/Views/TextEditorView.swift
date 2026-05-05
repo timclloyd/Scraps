@@ -21,6 +21,8 @@ private enum TextEditorFeedback {
 // MARK: - TextEditorView (Public SwiftUI Component)
 
 struct TextEditorView: UIViewRepresentable {
+    @EnvironmentObject var documentManager: DocumentManager
+
     @Binding var text: String
     var font: UIFont
     var isInitialFocus: Bool = false
@@ -88,6 +90,7 @@ struct TextEditorView: UIViewRepresentable {
             lm.normalFont = font
             lm.searchQuery = searchQuery
             lm.activeSearchRange = activeSearchRange
+            lm.highlightKeywords = documentManager.highlightSettings.keywords
         }
 
         // Update text if changed

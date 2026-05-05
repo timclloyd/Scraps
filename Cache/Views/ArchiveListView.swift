@@ -25,6 +25,8 @@ struct ArchiveListView: View {
     var searchQuery: String = ""
     var activeMatchScrapID: String? = nil
     var activeMatchRange: NSRange? = nil
+    @Binding var showsPreferences: Bool
+    let toolbarHeight: CGFloat
 
     private static let archiveScrollCoordinateSpace = "ArchiveScrollCoordinateSpace"
 
@@ -62,7 +64,7 @@ struct ArchiveListView: View {
                     .background(ScrollViewAccessor(store: archiveScrollViewStore))
                     .scrollIndicators(.hidden)
                     .scrollDismissesKeyboard(.never)
-                    .contentMargins(.bottom, keyboardHeight, for: .scrollContent)
+                    .contentMargins(.bottom, keyboardHeight + toolbarHeight, for: .scrollContent)
                     .ignoresSafeArea(edges: .bottom)
                     .overlay(alignment: .top) {
                         SmoothLinearGradient(
@@ -86,7 +88,7 @@ struct ArchiveListView: View {
                     .onPreferenceChange(ScrapFramePreferenceKey.self) { frames in
                         visibleViewport = makeVisibleViewport(
                             from: frames,
-                            viewportHeight: viewportGeometry.size.height
+                            viewportHeight: max(viewportGeometry.size.height - toolbarHeight, 0)
                         )
                     }
 
@@ -102,13 +104,79 @@ struct ArchiveListView: View {
                         }
                     )
                     .padding(.top, Theme.textSize + 2)
-                    .padding(.bottom, Theme.bottomFadeHeight)
+                    .padding(.bottom, Theme.bottomFadeHeight + toolbarHeight)
                     .background(Theme.archiveBackground)
+                }
+                .opacity(showsPreferences ? 0 : 1)
+                .overlay(alignment: .bottom) {
+                    if showsBottomToolbar {
+                        bottomToolbar(proxy: proxy)
+                            .frame(height: toolbarHeight)
+                            .background(Theme.archiveBackground)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .overlay {
+                    if showsPreferences {
+                        PreferencesView(
+                            searchButtonCenterTrailingInset: viewportGeometry.size.width / 6,
+                            keyboardHeight: keyboardHeight
+                        ) {
+                            withAnimation(Theme.navigationOut) {
+                                showsPreferences = false
+                            }
+                        }
+                        .environmentObject(documentManager)
+                        .transition(.move(edge: .bottom))
+                        .zIndex(1)
+                        .ignoresSafeArea(edges: .bottom)
+                    }
                 }
                 .onAppear {
                     valenceIndex.bind(to: documentManager)
                 }
             }
+        }
+    }
+
+    private var showsBottomToolbar: Bool {
+        viewMode == .archive && !showsPreferences
+    }
+
+    private func bottomToolbar(proxy: ScrollViewProxy) -> some View {
+        HStack(spacing: 0) {
+            Button {
+                scrollToRandomScrap(proxy: proxy)
+            } label: {
+                Image(systemName: "dice")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(Color(uiColor: .label))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Random scrap")
+            .disabled(documentManager.scraps.isEmpty)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Button {
+                withAnimation(Theme.navigationIn) {
+                    showsPreferences = true
+                }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                Image(systemName: "gear")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(Color(uiColor: .label))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Highlights")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -165,5 +233,11 @@ struct ArchiveListView: View {
                 }
             }
         }
+    }
+
+    private func scrollToRandomScrap(proxy: ScrollViewProxy) {
+        guard let scrap = documentManager.scraps.randomElement() else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        scrollToArchiveScrap(scrap.id, proxy: proxy, animated: true)
     }
 }
