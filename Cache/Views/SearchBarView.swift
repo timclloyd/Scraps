@@ -28,7 +28,7 @@ struct SearchBarView: View {
                 .foregroundColor(.secondary)
 
             TextField("Search...", text: $query)
-                .font(.custom(Theme.font, size: Theme.textSize))
+                .font(Theme.font(size: Theme.textSize))
                 .tint(Color(uiColor: Theme.textInputTintColor))
                 .focused($isFocused)
                 .autocorrectionDisabled()
@@ -38,7 +38,7 @@ struct SearchBarView: View {
 
             if !query.isEmpty {
                 Text(counterText)
-                    .font(.custom(Theme.font, size: Theme.separatorFontSize))
+                    .font(Theme.font(size: Theme.separatorFontSize))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
                     .fixedSize()

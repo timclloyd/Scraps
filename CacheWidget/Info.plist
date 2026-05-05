@@ -7,10 +7,5 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.widgetkit-extension</string>
 	</dict>
-	<key>UIAppFonts</key>
-	<array>
-		<string>RobotoMono-Regular.ttf</string>
-		<string>RobotoMono-Medium.ttf</string>
-	</array>
 </dict>
 </plist>

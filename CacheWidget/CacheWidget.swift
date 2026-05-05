@@ -267,7 +267,7 @@ private struct AccessoryCircularScrapView: View {
         ZStack {
             AccessoryWidgetBackground()
             Text(initials)
-                .font(.custom("RobotoMono-Medium", size: 18))
+                .font(Theme.font(size: 18, weight: .medium))
                 .minimumScaleFactor(0.6)
                 .widgetAccentable()
         }
@@ -388,8 +388,7 @@ private enum WidgetTextRenderer {
 
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
             traitCollection.performAsCurrent {
-                let font = UIFont(name: Theme.font, size: fontSize)
-                    ?? UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+                let font = Theme.uiFont(size: fontSize)
                 let attributed = WidgetTextDecorator.nsAttributedString(
                     for: text,
                     font: font,

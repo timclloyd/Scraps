@@ -57,7 +57,7 @@ struct MainView: View {
     @State private var showsPreferences = false
 
     private var editorFont: UIFont {
-        UIFont(name: Theme.font, size: Theme.textSize) ?? UIFont.systemFont(ofSize: Theme.textSize)
+        Theme.uiFont(size: Theme.textSize)
     }
 
     private var keyboardBackgroundColor: Color {

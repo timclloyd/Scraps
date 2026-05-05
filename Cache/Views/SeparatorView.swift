@@ -28,7 +28,7 @@ struct SeparatorView: View {
                 .frame(height: 1)
             
             Text(formattedTimestamp)
-                .font(.custom(Theme.font, size: Theme.separatorFontSize))
+                .font(Theme.font(size: Theme.separatorFontSize))
                 .foregroundColor(Color(Theme.separatorColor))
                 .padding(.bottom, Theme.separatorFontSize)
             .frame(maxWidth: .infinity, alignment: .leading)

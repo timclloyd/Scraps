@@ -15,10 +15,5 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>UIAppFonts</key>
-	<array>
-		<string>RobotoMono-Regular.ttf</string>
-		<string>RobotoMono-Medium.ttf</string>
-	</array>
 </dict>
 </plist>

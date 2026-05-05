@@ -23,7 +23,14 @@ enum Theme {
     //MARK: Fonts
     
     static let textSize: CGFloat = 16
-    static let font = "RobotoMono-Regular"
+
+    static func font(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: .monospaced)
+    }
+
+    static func uiFont(size: CGFloat, weight: UIFont.Weight = .regular) -> UIFont {
+        .monospacedSystemFont(ofSize: size, weight: weight)
+    }
 
     //MARK: Layout
     
