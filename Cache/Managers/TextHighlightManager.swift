@@ -65,11 +65,14 @@ class TextHighlightManager: NSLayoutManager {
         // storageLength is invariant for the duration of this beginEditing/endEditing
         // block — addAttribute does not change length — so caching it is safe.
         let storageLength = textStorage.length
+        let strikeRanges = HighlightPatterns.strikeRanges(in: text, range: range)
 
         for keyword in highlightKeywords {
             guard let color = HighlightPatterns.highlightColor[keyword.band] else { continue }
             keyword.regex.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
-                guard let range = match?.range, range.upperBound <= storageLength else { return }
+                guard let range = match?.range,
+                      range.upperBound <= storageLength,
+                      !HighlightPatterns.rangeIntersectsStrike(range, strikeRanges: strikeRanges) else { return }
                 textStorage.addAttribute(.backgroundColor, value: color, range: range)
             }
         }
@@ -84,8 +87,8 @@ class TextHighlightManager: NSLayoutManager {
         }
 
         // Apply strikethrough for ~~text~~ patterns, markers and content included.
-        HighlightPatterns.strikeRegex?.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
-            guard let matchRange = match?.range, matchRange.upperBound <= storageLength else { return }
+        for matchRange in strikeRanges {
+            guard matchRange.upperBound <= storageLength else { continue }
             textStorage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: matchRange)
             textStorage.addAttribute(.foregroundColor, value: Theme.linkColor, range: matchRange)
         }

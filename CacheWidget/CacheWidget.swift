@@ -336,10 +336,12 @@ private enum WidgetTextDecorator {
             baseAttributes[.font] = font
         }
         attributed.addAttributes(baseAttributes, range: fullRange)
+        let strikeRanges = HighlightPatterns.strikeRanges(in: text, range: fullRange)
 
         for keyword in LatestScrapStore.loadHighlightSettings().keywords {
             keyword.regex.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
                 guard let range = match?.range,
+                      !HighlightPatterns.rangeIntersectsStrike(range, strikeRanges: strikeRanges),
                       let color = HighlightPatterns.highlightColor[keyword.band] else { return }
                 attributed.addAttribute(
                     .backgroundColor,
@@ -361,8 +363,7 @@ private enum WidgetTextDecorator {
             attributed.addAttributes(attributes, range: match.range)
         }
 
-        HighlightPatterns.strikeRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
-            guard let range = match?.range else { return }
+        for range in strikeRanges {
             attributed.addAttributes([
                 .strikethroughStyle: NSUnderlineStyle.single.rawValue,
                 .foregroundColor: Theme.linkColor
@@ -484,8 +485,13 @@ private enum SentimentStore {
         for url in fileURLs where LatestScrapStore.parseTimestamp(from: url.lastPathComponent) != nil {
             guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
             let range = NSRange(location: 0, length: (text as NSString).length)
+            let strikeRanges = HighlightPatterns.strikeRanges(in: text, range: range)
             for keyword in keywords {
-                counts[keyword.band, default: 0] += keyword.regex.numberOfMatches(in: text, options: [], range: range)
+                keyword.regex.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
+                    guard let match,
+                          !HighlightPatterns.rangeIntersectsStrike(match.range, strikeRanges: strikeRanges) else { return }
+                    counts[keyword.band, default: 0] += 1
+                }
             }
         }
 

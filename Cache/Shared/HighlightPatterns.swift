@@ -65,6 +65,16 @@ enum HighlightPatterns {
         try? NSRegularExpression(pattern: "~~.+?~~")
     }()
 
+    static func strikeRanges(in text: String, range: NSRange? = nil) -> [NSRange] {
+        guard let strikeRegex else { return [] }
+        let searchRange = range ?? NSRange(location: 0, length: (text as NSString).length)
+        return strikeRegex.matches(in: text, options: [], range: searchRange).map(\.range)
+    }
+
+    static func rangeIntersectsStrike(_ range: NSRange, strikeRanges: [NSRange]) -> Bool {
+        strikeRanges.contains { NSIntersectionRange(range, $0).length > 0 }
+    }
+
     static let urlDetector: NSDataDetector? = {
         try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
     }()

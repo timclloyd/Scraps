@@ -90,10 +90,12 @@ final class ValenceIndex: ObservableObject {
     private func computeHits(in text: String) -> [ValenceHit] {
         guard !text.isEmpty else { return [] }
         let range = NSRange(location: 0, length: (text as NSString).length)
+        let strikeRanges = HighlightPatterns.strikeRanges(in: text, range: range)
         var located: [(location: Int, band: ValenceBand)] = []
         for keyword in valenceKeywords {
             keyword.regex.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
-                guard let match else { return }
+                guard let match,
+                      !HighlightPatterns.rangeIntersectsStrike(match.range, strikeRanges: strikeRanges) else { return }
                 located.append((location: match.range.location, band: keyword.band))
             }
         }
