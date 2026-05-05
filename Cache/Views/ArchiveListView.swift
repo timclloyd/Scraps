@@ -118,7 +118,10 @@ struct ArchiveListView: View {
                 }
                 .overlay {
                     if showsPreferences {
-                        PreferencesView(searchButtonCenterTrailingInset: viewportGeometry.size.width / 6) {
+                        PreferencesView(
+                            searchButtonCenterTrailingInset: viewportGeometry.size.width / 6,
+                            keyboardHeight: keyboardHeight
+                        ) {
                             withAnimation(Theme.navigationOut) {
                                 showsPreferences = false
                             }

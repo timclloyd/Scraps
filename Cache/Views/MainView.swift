@@ -101,28 +101,30 @@ struct MainView: View {
                         .offset(y: viewMode == .latest ? 0 : geometry.size.height)
                         .allowsHitTesting(viewMode == .latest)
 
-                    // Solid background behind keyboard to prevent text showing through
-                    VStack {
-                        Spacer()
-                        keyboardBackgroundColor
-                            .frame(height: keyboardTracker.height)
-                    }
-                    .allowsHitTesting(false)
-                    .ignoresSafeArea(edges: .bottom)
+                    if !showsPreferences {
+                        // Solid background behind keyboard to prevent text showing through
+                        VStack {
+                            Spacer()
+                            keyboardBackgroundColor
+                                .frame(height: keyboardTracker.height)
+                        }
+                        .allowsHitTesting(false)
+                        .ignoresSafeArea(edges: .bottom)
 
-                    // Bottom gradient — fades text above keyboard or screen bottom
-                    VStack {
-                        Spacer()
-                        SmoothLinearGradient(
-                            from: keyboardBackgroundColor.opacity(0),
-                            to: keyboardBackgroundColor.opacity(0.9),
-                            startPoint: .top, endPoint: .bottom, curve: .easeIn
-                        )
-                        .frame(height: Theme.bottomFadeHeight)
+                        // Bottom gradient — fades text above keyboard or screen bottom
+                        VStack {
+                            Spacer()
+                            SmoothLinearGradient(
+                                from: keyboardBackgroundColor.opacity(0),
+                                to: keyboardBackgroundColor.opacity(0.9),
+                                startPoint: .top, endPoint: .bottom, curve: .easeIn
+                            )
+                            .frame(height: Theme.bottomFadeHeight)
+                        }
+                        .padding(.bottom, keyboardTracker.height + archiveBottomToolbarHeight(for: geometry))
+                        .ignoresSafeArea(edges: .bottom)
+                        .allowsHitTesting(false)
                     }
-                    .padding(.bottom, keyboardTracker.height + archiveBottomToolbarHeight(for: geometry))
-                    .ignoresSafeArea(edges: .bottom)
-                    .allowsHitTesting(false)
                 }
                 .padding(.top, viewMode == .search ? 44 : 0)
                 .background(Theme.archiveBackground)
