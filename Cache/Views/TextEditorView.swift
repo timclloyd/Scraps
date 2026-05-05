@@ -400,7 +400,7 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
             let content = lineText.hasSuffix("\n") ? String(lineText.dropLast()) : lineText
             guard !content.trimmingCharacters(in: .whitespaces).isEmpty else { return }
             gestureLineRange = nsRange
-            gestureLineIsStruck = content.hasPrefix("~~") && content.hasSuffix("~~") && content.count > 4
+            gestureLineIsStruck = StrikethroughLineMutation.isStruck(content)
 
         case .changed:
             guard let lineRange = gestureLineRange else { return }
@@ -417,19 +417,14 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
             guard actionable else { gestureLineRange = nil; return }
 
             let lineText = (text as NSString).substring(with: lineRange)
-            let content = lineText.hasSuffix("\n") ? String(lineText.dropLast()) : lineText
-            let suffix = lineText.hasSuffix("\n") ? "\n" : ""
-            let newContent: String
-            if isRightSwipe {
-                newContent = "~~\(content)~~"
-            } else {
-                let canRemove = content.hasPrefix("~~") && content.hasSuffix("~~") && content.count > 4
-                newContent = canRemove ? String(content.dropFirst(2).dropLast(2)) : content
+            guard let mutation = StrikethroughLineMutation.result(for: lineText, isRightSwipe: isRightSwipe) else {
+                gestureLineRange = nil
+                return
             }
-            let newRange = NSRange(location: lineRange.location, length: (newContent + suffix).utf16.count)
+            let newRange = NSRange(location: lineRange.location, length: mutation.replacement.utf16.count)
 
             textStorage.beginEditing()
-            textStorage.replaceCharacters(in: lineRange, with: newContent + suffix)
+            textStorage.replaceCharacters(in: lineRange, with: mutation.replacement)
             // New chars inherit attributes from the first replaced character (gray foreground,
             // strikethrough). Restore normal attributes so processEditing sees a clean slate.
             if let font = self.font {
@@ -441,7 +436,7 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
             textStorage.endEditing()
 
             // Place cursor at end of modified line so scroll-to-cursor stays on the swiped line
-            selectedRange = NSRange(location: lineRange.location + newContent.utf16.count, length: 0)
+            selectedRange = NSRange(location: lineRange.location + mutation.caretOffset, length: 0)
 
             UIImpactFeedbackGenerator(style: Theme.strikethroughHapticStyle).impactOccurred()
             AudioServicesPlaySystemSound(TextEditorFeedback.strikethroughSoundID)

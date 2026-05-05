@@ -22,6 +22,11 @@
 //  the URL directly without promoting.
 
 import SwiftUI
+import AudioToolbox
+
+private enum ScrapPreviewFeedback {
+    static let strikethroughSoundID: SystemSoundID = 1306
+}
 
 struct ScrapPreviewView: UIViewRepresentable {
     let scrap: Scrap
@@ -58,6 +63,12 @@ struct ScrapPreviewView: UIViewRepresentable {
                                          action: #selector(Coordinator.handleTap(_:)))
         tap.cancelsTouchesInView = true
         textView.addGestureRecognizer(tap)
+
+        let pan = UIPanGestureRecognizer(target: context.coordinator,
+                                         action: #selector(Coordinator.handleStrikethroughPan(_:)))
+        pan.delegate = context.coordinator
+        textView.addGestureRecognizer(pan)
+
         context.coordinator.textView = textView
 
         textView.text = document.text
@@ -105,10 +116,12 @@ struct ScrapPreviewView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     @MainActor
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var parent: ScrapPreviewView
         weak var textView: PreviewTextView?
         var lastActiveSearchRange: NSRange?
+        private var gestureLineRange: NSRange?
+        private var gestureLineIsStruck = false
 
         init(_ parent: ScrapPreviewView) { self.parent = parent }
 
@@ -154,6 +167,55 @@ struct ScrapPreviewView: UIViewRepresentable {
                 filename: parent.scrap.filename,
                 tapLocation: point
             )
+        }
+
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = recognizer as? UIPanGestureRecognizer else { return true }
+            let velocity = pan.velocity(in: textView)
+            return abs(velocity.x) > abs(velocity.y) * 2
+        }
+
+        @objc func handleStrikethroughPan(_ pan: UIPanGestureRecognizer) {
+            guard let textView else { return }
+            let translation = pan.translation(in: textView)
+            let isRightSwipe = translation.x > 0
+
+            switch pan.state {
+            case .began:
+                let location = pan.location(in: textView)
+                guard let textPosition = textView.closestPosition(to: location) else { return }
+                let charIndex = textView.offset(from: textView.beginningOfDocument, to: textPosition)
+                let lineRange = (textView.text as NSString).paragraphRange(for: NSRange(location: charIndex, length: 0))
+                let lineText = (textView.text as NSString).substring(with: lineRange)
+                let content = lineText.hasSuffix("\n") ? String(lineText.dropLast()) : lineText
+                guard !content.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                gestureLineRange = lineRange
+                gestureLineIsStruck = StrikethroughLineMutation.isStruck(content)
+
+            case .ended:
+                defer { gestureLineRange = nil }
+                guard let lineRange = gestureLineRange, abs(translation.x) > 60 else { return }
+                let actionable = isRightSwipe ? !gestureLineIsStruck : gestureLineIsStruck
+                guard actionable else { return }
+
+                let currentText = parent.document.text
+                guard lineRange.upperBound <= (currentText as NSString).length else { return }
+                let lineText = (currentText as NSString).substring(with: lineRange)
+                guard let mutation = StrikethroughLineMutation.result(for: lineText, isRightSwipe: isRightSwipe) else { return }
+
+                let updatedText = (currentText as NSString).replacingCharacters(in: lineRange, with: mutation.replacement)
+                parent.document.updateText(updatedText)
+                textView.text = updatedText
+
+                UIImpactFeedbackGenerator(style: Theme.strikethroughHapticStyle).impactOccurred()
+                AudioServicesPlaySystemSound(ScrapPreviewFeedback.strikethroughSoundID)
+
+            case .cancelled, .failed:
+                gestureLineRange = nil
+
+            default:
+                break
+            }
         }
 
         // Link hit-testing: map the tap point to a character index and check for
