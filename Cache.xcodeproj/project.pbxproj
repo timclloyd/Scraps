@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		152937B72D3C47CD00F235A2 /* SmoothGradient in Frameworks */ = {isa = PBXBuildFile; productRef = 152937B62D3C47CD00F235A2 /* SmoothGradient */; };
 		15A000062E00000000000000 /* CacheWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15A000032E00000000000000 /* CacheWidget.swift */; };
-		15A000092E00000000000000 /* CacheWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 15A000012E00000000000000 /* CacheWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		15A000092E00000000000000 /* CacheWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 15A000012E00000000000000 /* CacheWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		15A000172E00000000000000 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15A000162E00000000000000 /* Theme.swift */; };
 		15A000192E00000000000000 /* HighlightPatterns.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15A000182E00000000000000 /* HighlightPatterns.swift */; };
 /* End PBXBuildFile section */
@@ -39,15 +39,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		15A0000D2E00000000000000 /* Embed App Extensions */ = {
+		15A0000D2E00000000000000 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				15A000092E00000000000000 /* CacheWidget.appex in Embed App Extensions */,
+				15A000092E00000000000000 /* CacheWidget.appex in Embed Foundation Extensions */,
 			);
-			name = "Embed App Extensions";
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -203,7 +203,7 @@
 				15D9C2822D350BFB0013E9A3 /* Sources */,
 				15D9C2832D350BFB0013E9A3 /* Frameworks */,
 				15D9C2842D350BFB0013E9A3 /* Resources */,
-				15A0000D2E00000000000000 /* Embed App Extensions */,
+				15A0000D2E00000000000000 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -272,7 +272,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1620;
-				LastUpgradeCheck = 2600;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					15A0000E2E00000000000000 = {
 						CreatedOnToolsVersion = 16.2;
