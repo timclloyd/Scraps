@@ -64,24 +64,13 @@ class DocumentManager: ObservableObject {
             // Step 1: Load existing scraps, prioritising the latest so the UI is interactive ASAP
             await loadScrapsInitial()
 
-            // Step 2: Check if we need to create a new scrap
-            if shouldCreateNewScrap() {
-                // Long absence — check if last scrap is empty and replace if needed.
-                // Load-bearing invariant: shouldCreateNewScrap() being true implies the
-                // latest scrap's timestamp is from a prior calendar day, so it cannot
-                // be one we just created this session. Without that, a freshly-created
-                // empty scrap (.normal + empty) would match isSafelyEmpty and be deleted.
-                if let lastScrap = scraps.last, isSafelyEmpty(lastScrap) {
-                    // Delete the old empty scrap before creating new one
-                    await deleteScrap(lastScrap)
-                }
-
-                // Create new scrap and wait for it to complete
+            // Step 2: Backstop for first launch or create failures during initial load.
+            if scraps.isEmpty {
+                // No scraps at all - create first one
                 if let newScrap = await createNewScrap() {
                     focus(on: newScrap)
                 }
-            } else if scraps.isEmpty {
-                // No scraps at all - create first one
+            } else if shouldCreateNewScrap() {
                 if let newScrap = await createNewScrap() {
                     focus(on: newScrap)
                 }
@@ -96,14 +85,26 @@ class DocumentManager: ObservableObject {
         }
     }
 
-    // Two-phase load used only at init: opens the latest scrap first so the UI becomes
-    // interactive immediately, then loads older scraps in the background.
+    // Two-phase load used only at init. If the latest on-disk filename is from a
+    // prior local day, create today's blank scrap before opening yesterday's file
+    // so launch appears to start on the new scrap.
     private func loadScrapsInitial() async {
         do {
             guard let scrapFiles = try await fileStore.enumeratedScrapFiles(), !scrapFiles.isEmpty else { return }
 
             // Filenames encode the timestamp, so descending lexicographic order = latest first
             let sortedFiles = scrapFiles.sorted { $0.lastPathComponent > $1.lastPathComponent }
+
+            if let latestFile = sortedFiles.first,
+               ScrapCreationPolicy.shouldCreateNewScrap(
+                   latestTimestamp: Scrap.parseTimestamp(from: latestFile.lastPathComponent)
+               ) {
+                if let newScrap = await createNewScrap() {
+                    focus(on: newScrap)
+                }
+                await openRemainingInitialScraps(at: sortedFiles)
+                return
+            }
 
             // Phase 1: open the latest scrap immediately so the panel and keyboard appear
             if let latestFile = sortedFiles.first,
@@ -120,38 +121,42 @@ class DocumentManager: ObservableObject {
 
             // Phase 2: open remaining scraps concurrently in the background
             let otherFiles = Array(sortedFiles.dropFirst())
-            guard !otherFiles.isEmpty else { return }
-
-            let otherScraps = await ScrapDocumentLoader.openScraps(at: otherFiles)
-
-            // Between Phase 1 completing and Phase 2 finishing, `scraps` may have been
-            // mutated by on-demand creation, deletion, or a full `replaceLoadedScraps`.
-            // Diff by filename and drop anything already present to avoid duplicate
-            // entries + leaked TextDocuments. Close the duplicates so UIDocument's
-            // internal file presenter is unregistered.
-            let existingFilenames = Set(scraps.map(\.filename))
-            var newScraps: [Scrap] = []
-            newScraps.reserveCapacity(otherScraps.count)
-            for scrap in otherScraps {
-                if existingFilenames.contains(scrap.filename) {
-                    // Safe to discard: this duplicate was opened in Phase 2 but never had an observer attached and is not in `scraps`, so no user edits can have landed on it.
-                    await ScrapDocumentLoader.closeDocument(scrap.document)
-                } else {
-                    newScraps.append(scrap)
-                }
-            }
-            guard !newScraps.isEmpty else { return }
-
-            for scrap in newScraps { attachObserver(to: scrap.document) }
-            // Merge and re-sort by timestamp — Phase 2 items are usually older than
-            // whatever was loaded in Phase 1, but on-demand-created scraps may have
-            // landed in the meantime, so the full sort is the only safe assumption.
-            scraps.append(contentsOf: newScraps)
-            scraps.sort { $0.timestamp < $1.timestamp }
+            await openRemainingInitialScraps(at: otherFiles)
 
         } catch {
             print("Error enumerating scrap files: \(error)")
         }
+    }
+
+    private func openRemainingInitialScraps(at fileURLs: [URL]) async {
+        guard !fileURLs.isEmpty else { return }
+
+        let otherScraps = await ScrapDocumentLoader.openScraps(at: fileURLs)
+
+        // Between Phase 1 completing and Phase 2 finishing, `scraps` may have been
+        // mutated by on-demand creation, deletion, or a full `replaceLoadedScraps`.
+        // Diff by filename and drop anything already present to avoid duplicate
+        // entries + leaked TextDocuments. Close the duplicates so UIDocument's
+        // internal file presenter is unregistered.
+        let existingFilenames = Set(scraps.map(\.filename))
+        var newScraps: [Scrap] = []
+        newScraps.reserveCapacity(otherScraps.count)
+        for scrap in otherScraps {
+            if existingFilenames.contains(scrap.filename) {
+                // Safe to discard: this duplicate was opened in Phase 2 but never had an observer attached and is not in `scraps`, so no user edits can have landed on it.
+                await ScrapDocumentLoader.closeDocument(scrap.document)
+            } else {
+                newScraps.append(scrap)
+            }
+        }
+        guard !newScraps.isEmpty else { return }
+
+        for scrap in newScraps { attachObserver(to: scrap.document) }
+        // Merge and re-sort by timestamp — Phase 2 items are usually older than
+        // whatever was loaded in Phase 1, but on-demand-created scraps may have
+        // landed in the meantime, so the full sort is the only safe assumption.
+        scraps.append(contentsOf: newScraps)
+        scraps.sort { $0.timestamp < $1.timestamp }
     }
 
     private func loadScraps() async {
