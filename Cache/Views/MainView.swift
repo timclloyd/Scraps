@@ -65,7 +65,7 @@ struct MainView: View {
     }
 
     private func archiveBottomToolbarHeight(for geometry: GeometryProxy) -> CGFloat {
-        viewMode == .archive ? geometry.safeAreaInsets.top : 0
+        viewMode == .archive && keyboardTracker.height == 0 ? geometry.safeAreaInsets.top : 0
     }
 
     private var activeMatch: (scrapID: String, range: NSRange)? {
