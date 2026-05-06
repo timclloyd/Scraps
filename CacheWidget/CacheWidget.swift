@@ -218,7 +218,7 @@ private struct HomeScreenScrapView: View {
 
     private var displayText: String {
         guard let text = scrap?.text, text.isEmpty == false else {
-            return "No scraps yet."
+            return "Nothing written yet"
         }
         return text
     }
@@ -254,7 +254,7 @@ private struct AccessoryRectangularScrapView: View {
     private var displayText: String {
         guard let text = scrap?.text.trimmingCharacters(in: .whitespacesAndNewlines),
               text.isEmpty == false else {
-            return "No scraps yet."
+            return "Nothing written yet"
         }
         return text
     }
