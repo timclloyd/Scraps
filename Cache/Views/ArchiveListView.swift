@@ -27,6 +27,7 @@ struct ArchiveListView: View {
     var activeMatchRange: NSRange? = nil
     @Binding var showsPreferences: Bool
     let toolbarHeight: CGFloat
+    let randomScrollRequestID: Int
 
     private static let archiveScrollCoordinateSpace = "ArchiveScrollCoordinateSpace"
 
@@ -134,6 +135,10 @@ struct ArchiveListView: View {
                 }
                 .onAppear {
                     valenceIndex.bind(to: documentManager)
+                }
+                .onChange(of: randomScrollRequestID) { _, _ in
+                    guard viewMode == .archive else { return }
+                    scrollToRandomScrap(proxy: proxy)
                 }
             }
         }

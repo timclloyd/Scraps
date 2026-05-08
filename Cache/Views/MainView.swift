@@ -54,6 +54,7 @@ struct MainView: View {
     @State private var searchMatches: [(scrapID: String, range: NSRange)] = []
     @State private var currentMatchIndex: Int = 0
     @State private var latestFocusRequestID = 0
+    @State private var randomArchiveRequestID = 0
     @State private var showsPreferences = false
 
     private var editorFont: UIFont {
@@ -94,7 +95,8 @@ struct MainView: View {
                         activeMatchScrapID: activeMatch?.scrapID,
                         activeMatchRange: activeMatch?.range,
                         showsPreferences: $showsPreferences,
-                        toolbarHeight: bottomToolbarHeight
+                        toolbarHeight: bottomToolbarHeight,
+                        randomScrollRequestID: randomArchiveRequestID
                     )
 
                     LatestScrapPanelView(
@@ -196,6 +198,29 @@ struct MainView: View {
             guard viewMode == .latest,
                   latestScrapID == documentManager.focusedScrapID else { return }
             requestLatestEditorFocus()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .scrapsToggleSearch)) { _ in
+            toggleSearch()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .scrapsToggleViewMode)) { _ in
+            toggleViewMode()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .scrapsShowPreferences)) { _ in
+            togglePreferences()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .scrapsDismissPresentedUI)) { _ in
+            dismissPresentedUI()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .scrapsPreviousSearchMatch)) { _ in
+            guard viewMode == .search else { return }
+            prevMatch()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .scrapsNextSearchMatch)) { _ in
+            guard viewMode == .search else { return }
+            nextMatch()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .scrapsOpenRandomArchiveScrap)) { _ in
+            openRandomArchiveScrap()
         }
     }
 
@@ -312,6 +337,80 @@ struct MainView: View {
             documentManager.focusLatestScrap()
             requestLatestEditorFocus()
         }
+    }
+
+    private func openRandomArchiveScrap() {
+        dismissKeyboard()
+        showsPreferences = false
+
+        let requestRandomScrap = {
+            randomArchiveRequestID += 1
+        }
+
+        switch viewMode {
+        case .archive:
+            requestRandomScrap()
+        case .latest:
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(Theme.navigationOut) {
+                viewMode = .archive
+            } completion: {
+                requestRandomScrap()
+            }
+        case .search:
+            withAnimation(Theme.navigationOut) {
+                viewMode = .archive
+            } completion: {
+                clearSearch()
+                requestRandomScrap()
+            }
+        }
+    }
+
+    private func togglePreferences() {
+        if showsPreferences {
+            dismissPresentedUI()
+            return
+        }
+
+        dismissKeyboard()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+        let openPreferences = {
+            withAnimation(Theme.navigationIn) {
+                showsPreferences = true
+            }
+        }
+
+        switch viewMode {
+        case .archive:
+            openPreferences()
+        case .latest:
+            withAnimation(Theme.navigationOut) {
+                viewMode = .archive
+            } completion: {
+                openPreferences()
+            }
+        case .search:
+            withAnimation(Theme.navigationOut) {
+                viewMode = .archive
+            } completion: {
+                clearSearch()
+                openPreferences()
+            }
+        }
+    }
+
+    private func dismissPresentedUI() {
+        if showsPreferences {
+            withAnimation(Theme.navigationOut) {
+                showsPreferences = false
+            }
+            return
+        }
+
+        guard viewMode == .search else { return }
+        toggleSearch()
     }
 
     private func requestLatestEditorFocus() {

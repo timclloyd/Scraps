@@ -8,6 +8,16 @@
 import SwiftUI
 import UIKit
 
+extension Notification.Name {
+    static let scrapsToggleSearch = Notification.Name("scrapsToggleSearch")
+    static let scrapsToggleViewMode = Notification.Name("scrapsToggleViewMode")
+    static let scrapsShowPreferences = Notification.Name("scrapsShowPreferences")
+    static let scrapsDismissPresentedUI = Notification.Name("scrapsDismissPresentedUI")
+    static let scrapsPreviousSearchMatch = Notification.Name("scrapsPreviousSearchMatch")
+    static let scrapsNextSearchMatch = Notification.Name("scrapsNextSearchMatch")
+    static let scrapsOpenRandomArchiveScrap = Notification.Name("scrapsOpenRandomArchiveScrap")
+}
+
 @main
 struct ScrapsApp: App {
     @StateObject private var documentManager = DocumentManager()
@@ -45,6 +55,46 @@ struct ScrapsApp: App {
                 documentManager.checkForUpdates()
             @unknown default:
                 break
+            }
+        }
+        .commands {
+            CommandGroup(after: .textEditing) {
+                Button("Search") {
+                    NotificationCenter.default.post(name: .scrapsToggleSearch, object: nil)
+                }
+                .keyboardShortcut("f", modifiers: .command)
+
+                Button("Toggle View") {
+                    NotificationCenter.default.post(name: .scrapsToggleViewMode, object: nil)
+                }
+                .keyboardShortcut("t", modifiers: .command)
+
+                Button("Random Scrap") {
+                    NotificationCenter.default.post(name: .scrapsOpenRandomArchiveScrap, object: nil)
+                }
+                .keyboardShortcut("r", modifiers: .command)
+
+                Button("Previous Match") {
+                    NotificationCenter.default.post(name: .scrapsPreviousSearchMatch, object: nil)
+                }
+                .keyboardShortcut(.leftArrow, modifiers: .command)
+
+                Button("Next Match") {
+                    NotificationCenter.default.post(name: .scrapsNextSearchMatch, object: nil)
+                }
+                .keyboardShortcut(.rightArrow, modifiers: .command)
+
+                Button("Close") {
+                    NotificationCenter.default.post(name: .scrapsDismissPresentedUI, object: nil)
+                }
+                .keyboardShortcut(.escape, modifiers: [])
+            }
+
+            CommandGroup(replacing: .appSettings) {
+                Button("Preferences") {
+                    NotificationCenter.default.post(name: .scrapsShowPreferences, object: nil)
+                }
+                .keyboardShortcut(",", modifiers: .command)
             }
         }
     }

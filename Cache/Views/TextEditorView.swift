@@ -353,6 +353,17 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
         return true
     }
 
+    override var keyCommands: [UIKeyCommand]? {
+        [
+            UIKeyCommand(input: "f", modifierFlags: .command, action: #selector(postToggleSearchCommand)),
+            UIKeyCommand(input: ",", modifierFlags: .command, action: #selector(postTogglePreferencesCommand)),
+            UIKeyCommand(input: "r", modifierFlags: .command, action: #selector(postOpenRandomArchiveScrapCommand)),
+            UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(postDismissPresentedUICommand)),
+            UIKeyCommand(input: UIKeyCommand.inputLeftArrow, modifierFlags: .command, action: #selector(postPreviousSearchMatchCommand)),
+            UIKeyCommand(input: UIKeyCommand.inputRightArrow, modifierFlags: .command, action: #selector(postNextSearchMatchCommand))
+        ]
+    }
+
     override func didMoveToWindow() {
         super.didMoveToWindow()
         if window != nil {
@@ -374,6 +385,30 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
     override func resignFirstResponder() -> Bool {
         self.inputView = nil
         return super.resignFirstResponder()
+    }
+
+    @objc private func postToggleSearchCommand() {
+        NotificationCenter.default.post(name: .scrapsToggleSearch, object: nil)
+    }
+
+    @objc private func postTogglePreferencesCommand() {
+        NotificationCenter.default.post(name: .scrapsShowPreferences, object: nil)
+    }
+
+    @objc private func postDismissPresentedUICommand() {
+        NotificationCenter.default.post(name: .scrapsDismissPresentedUI, object: nil)
+    }
+
+    @objc private func postOpenRandomArchiveScrapCommand() {
+        NotificationCenter.default.post(name: .scrapsOpenRandomArchiveScrap, object: nil)
+    }
+
+    @objc private func postPreviousSearchMatchCommand() {
+        NotificationCenter.default.post(name: .scrapsPreviousSearchMatch, object: nil)
+    }
+
+    @objc private func postNextSearchMatchCommand() {
+        NotificationCenter.default.post(name: .scrapsNextSearchMatch, object: nil)
     }
 
     // MARK: - UIGestureRecognizerDelegate
