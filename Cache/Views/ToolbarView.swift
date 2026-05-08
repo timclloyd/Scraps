@@ -8,6 +8,7 @@ import SwiftUI
 struct ToolbarView: View {
     let viewMode: ViewMode
     let topHeight: CGFloat
+    let controlTopPadding: CGFloat
     var hidesButtons = false
     let onToggleMode: () -> Void
     let onToggleSearch: () -> Void
@@ -46,14 +47,19 @@ struct ToolbarView: View {
             .opacity(hidesButtons ? 0 : 1)
             .allowsHitTesting(!hidesButtons)
         }
-        .frame(height: topHeight)
+        .padding(.top, controlTopPadding)
+        .frame(height: topHeight, alignment: .top)
         .background(Theme.archiveBackground)
     }
 
     private func modeToggleIconName(for date: Date) -> String {
         guard viewMode != .latest else { return "clock" }
 
-        let day = Calendar.current.component(.day, from: date)
-        return "\(day).calendar"
+        if #available(iOS 26.0, *) {
+            let day = Calendar.current.component(.day, from: date)
+            return "\(day).calendar"
+        }
+
+        return "calendar"
     }
 }

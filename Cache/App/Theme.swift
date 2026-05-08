@@ -44,6 +44,28 @@ enum Theme {
 
     static let topFadeHeight: CGFloat = 48
     static let bottomFadeHeight: CGFloat = 48
+
+    static let toolbarControlHeight: CGFloat = 44
+
+    static func topToolbarHeight(for safeAreaInsets: EdgeInsets) -> CGFloat {
+        if safeAreaInsets.top >= toolbarControlHeight {
+            return safeAreaInsets.top
+        }
+
+        return safeAreaInsets.top + toolbarControlHeight
+    }
+
+    static func topToolbarControlTopPadding(for safeAreaInsets: EdgeInsets) -> CGFloat {
+        safeAreaInsets.top >= toolbarControlHeight ? 0 : safeAreaInsets.top
+    }
+
+    static func topContentInset(for safeAreaInsets: EdgeInsets) -> CGFloat {
+        safeAreaInsets.top >= toolbarControlHeight ? 0 : toolbarControlHeight
+    }
+
+    static func bottomToolbarHeight(for safeAreaInsets: EdgeInsets) -> CGFloat {
+        max(safeAreaInsets.top, toolbarControlHeight)
+    }
     
     /// Vertical padding to maintain above and below the cursor when scrolling
     /// Ensures cursor stays comfortably visible away from screen edges and keyboard

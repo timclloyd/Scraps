@@ -17,8 +17,25 @@ final class ScrapFileStore {
             FileManager.default.url(forUbiquityContainerIdentifier: nil)
         }.value
         ubiquityContainerURL = url
-        return url != nil
+        if url != nil {
+            return true
+        }
+
+        #if targetEnvironment(simulator)
+        ubiquityContainerURL = simulatorFallbackContainerURL()
+        print("Warning: iCloud unavailable in Simulator; using local fallback storage.")
+        return true
+        #else
+        return false
+        #endif
     }
+
+    #if targetEnvironment(simulator)
+    private func simulatorFallbackContainerURL() -> URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SimulatorUbiquityFallback", isDirectory: true)
+    }
+    #endif
 
     // Returns sorted scrap file URLs (oldest first), creating the Documents directory if needed.
     func enumeratedScrapFiles() async throws -> [URL]? {

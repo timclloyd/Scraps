@@ -64,8 +64,8 @@ struct MainView: View {
         viewMode == .latest ? Theme.latestPanelBackground : Theme.archiveBackground
     }
 
-    private func archiveBottomToolbarHeight(for geometry: GeometryProxy) -> CGFloat {
-        viewMode == .archive && keyboardTracker.height == 0 ? geometry.safeAreaInsets.top : 0
+    private func archiveBottomToolbarHeight(_ bottomToolbarHeight: CGFloat) -> CGFloat {
+        viewMode == .archive && keyboardTracker.height == 0 ? bottomToolbarHeight : 0
     }
 
     private var activeMatch: (scrapID: String, range: NSRange)? {
@@ -79,6 +79,11 @@ struct MainView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let topToolbarHeight = Theme.topToolbarHeight(for: geometry.safeAreaInsets)
+            let topToolbarControlTopPadding = Theme.topToolbarControlTopPadding(for: geometry.safeAreaInsets)
+            let topContentInset = Theme.topContentInset(for: geometry.safeAreaInsets)
+            let bottomToolbarHeight = Theme.bottomToolbarHeight(for: geometry.safeAreaInsets)
+
             ZStack(alignment: .top) {
                 ZStack {
                     ArchiveListView(
@@ -89,7 +94,7 @@ struct MainView: View {
                         activeMatchScrapID: activeMatch?.scrapID,
                         activeMatchRange: activeMatch?.range,
                         showsPreferences: $showsPreferences,
-                        toolbarHeight: geometry.safeAreaInsets.top
+                        toolbarHeight: bottomToolbarHeight
                     )
 
                     LatestScrapPanelView(
@@ -121,12 +126,12 @@ struct MainView: View {
                             )
                             .frame(height: Theme.bottomFadeHeight)
                         }
-                        .padding(.bottom, keyboardTracker.height + archiveBottomToolbarHeight(for: geometry))
+                        .padding(.bottom, keyboardTracker.height + archiveBottomToolbarHeight(bottomToolbarHeight))
                         .ignoresSafeArea(edges: .bottom)
                         .allowsHitTesting(false)
                     }
                 }
-                .padding(.top, viewMode == .search ? 44 : 0)
+                .padding(.top, topContentInset + (viewMode == .search ? Theme.toolbarControlHeight : 0))
                 .background(Theme.archiveBackground)
 
                 // Search bar — sits at the ZStack's safe-area top, i.e. directly below the toolbar
@@ -143,12 +148,14 @@ struct MainView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                         Spacer()
                     }
+                    .padding(.top, topContentInset)
                 }
 
                 // Toolbar — higher z-order so it always wins hit tests, extends into status bar
                 ToolbarView(
                     viewMode: viewMode,
-                    topHeight: geometry.safeAreaInsets.top,
+                    topHeight: topToolbarHeight,
+                    controlTopPadding: topToolbarControlTopPadding,
                     hidesButtons: showsPreferences,
                     onToggleMode: toggleViewMode,
                     onToggleSearch: toggleSearch
