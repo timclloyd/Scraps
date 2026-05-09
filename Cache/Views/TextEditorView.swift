@@ -358,6 +358,7 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
             UIKeyCommand(input: "f", modifierFlags: .command, action: #selector(postToggleSearchCommand)),
             UIKeyCommand(input: ",", modifierFlags: .command, action: #selector(postTogglePreferencesCommand)),
             UIKeyCommand(input: "r", modifierFlags: .command, action: #selector(postOpenRandomArchiveScrapCommand)),
+            UIKeyCommand(input: "d", modifierFlags: .command, action: #selector(toggleStrikethroughFocusedLineCommand)),
             UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(postDismissPresentedUICommand)),
             UIKeyCommand(input: UIKeyCommand.inputLeftArrow, modifierFlags: .command, action: #selector(postPreviousSearchMatchCommand)),
             UIKeyCommand(input: UIKeyCommand.inputRightArrow, modifierFlags: .command, action: #selector(postNextSearchMatchCommand))
@@ -411,6 +412,12 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
         NotificationCenter.default.post(name: .scrapsNextSearchMatch, object: nil)
     }
 
+    @objc private func toggleStrikethroughFocusedLineCommand() {
+        let caretLocation = min(selectedRange.location, (text as NSString).length)
+        let lineRange = (text as NSString).paragraphRange(for: NSRange(location: caretLocation, length: 0))
+        toggleStrikethroughLine(in: lineRange)
+    }
+
     // MARK: - UIGestureRecognizerDelegate
 
     override func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
@@ -456,27 +463,7 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
                 gestureLineRange = nil
                 return
             }
-            let newRange = NSRange(location: lineRange.location, length: mutation.replacement.utf16.count)
-
-            textStorage.beginEditing()
-            textStorage.replaceCharacters(in: lineRange, with: mutation.replacement)
-            // New chars inherit attributes from the first replaced character (gray foreground,
-            // strikethrough). Restore normal attributes so processEditing sees a clean slate.
-            if let font = self.font {
-                textStorage.addAttribute(.font, value: font, range: newRange)
-            }
-            if let color = self.textColor {
-                textStorage.addAttribute(.foregroundColor, value: color, range: newRange)
-            }
-            textStorage.endEditing()
-
-            // Place cursor at end of modified line so scroll-to-cursor stays on the swiped line
-            selectedRange = NSRange(location: lineRange.location + mutation.caretOffset, length: 0)
-
-            UIImpactFeedbackGenerator(style: Theme.strikethroughHapticStyle).impactOccurred()
-            AudioServicesPlaySystemSound(TextEditorFeedback.strikethroughSoundID)
-
-            delegate?.textViewDidChange?(self)
+            applyStrikethroughMutation(mutation, to: lineRange)
 
             gestureLineRange = nil
 
@@ -487,6 +474,38 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
         default:
             break
         }
+    }
+
+    private func toggleStrikethroughLine(in lineRange: NSRange) {
+        guard lineRange.upperBound <= (text as NSString).length else { return }
+        let lineText = (text as NSString).substring(with: lineRange)
+        let content = lineText.hasSuffix("\n") ? String(lineText.dropLast()) : lineText
+        let isRightSwipe = !StrikethroughLineMutation.isStruck(content)
+        guard let mutation = StrikethroughLineMutation.result(for: lineText, isRightSwipe: isRightSwipe) else { return }
+        applyStrikethroughMutation(mutation, to: lineRange)
+    }
+
+    private func applyStrikethroughMutation(_ mutation: StrikethroughLineMutation.Result, to lineRange: NSRange) {
+        let newRange = NSRange(location: lineRange.location, length: mutation.replacement.utf16.count)
+
+        textStorage.beginEditing()
+        textStorage.replaceCharacters(in: lineRange, with: mutation.replacement)
+        // New chars inherit attributes from the first replaced character. Restore
+        // normal attributes so processEditing sees a clean slate.
+        if let font = self.font {
+            textStorage.addAttribute(.font, value: font, range: newRange)
+        }
+        if let color = self.textColor {
+            textStorage.addAttribute(.foregroundColor, value: color, range: newRange)
+        }
+        textStorage.endEditing()
+
+        selectedRange = NSRange(location: lineRange.location + mutation.caretOffset, length: 0)
+
+        UIImpactFeedbackGenerator(style: Theme.strikethroughHapticStyle).impactOccurred()
+        AudioServicesPlaySystemSound(TextEditorFeedback.strikethroughSoundID)
+
+        delegate?.textViewDidChange?(self)
     }
 
     private func updateStrikethroughPreview(for lineRange: NSRange, progress: CGFloat) {
