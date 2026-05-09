@@ -16,6 +16,8 @@ struct ScrapView: View {
     var focusRequestID: Int = 0
     var searchQuery: String = ""
     var activeSearchRange: NSRange? = nil
+    var allowsSearchNavigationShortcuts: Bool = false
+    var allowsArchiveNavigationShortcuts: Bool = false
 
     @EnvironmentObject var documentManager: DocumentManager
 
@@ -36,6 +38,8 @@ struct ScrapView: View {
             },
             searchQuery: searchQuery,
             activeSearchRange: activeSearchRange,
+            allowsSearchNavigationShortcuts: allowsSearchNavigationShortcuts,
+            allowsArchiveNavigationShortcuts: allowsArchiveNavigationShortcuts,
             initialTapLocation: consumePendingTapLocation()
         )
         .frame(maxWidth: .infinity, alignment: .leading)

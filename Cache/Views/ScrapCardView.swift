@@ -16,6 +16,8 @@ struct ScrapCardView: View {
     let editorFont: UIFont
     var searchQuery: String = ""
     var activeSearchRange: NSRange? = nil
+    var allowsSearchNavigationShortcuts: Bool = false
+    var allowsArchiveNavigationShortcuts: Bool = false
     // When true, the card always uses the full editor (e.g. for the latest-scrap
     // panel, which is singular and inexpensive). Archive list callers leave this
     // false so non-focused cards render via the cheap read-only preview.
@@ -54,7 +56,9 @@ struct ScrapCardView: View {
                         isInitialFocus: forceEditor ? autoFocus : (autoFocus || isFocused),
                         focusRequestID: focusRequestID,
                         searchQuery: searchQuery,
-                        activeSearchRange: activeSearchRange
+                        activeSearchRange: activeSearchRange,
+                        allowsSearchNavigationShortcuts: allowsSearchNavigationShortcuts,
+                        allowsArchiveNavigationShortcuts: allowsArchiveNavigationShortcuts
                     )
                 } else {
                     ScrapPreviewView(

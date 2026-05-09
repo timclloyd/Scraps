@@ -170,6 +170,7 @@ struct MainView: View {
             }
         }
         .background(Theme.archiveBackground)
+        .focusedSceneValue(\.scrapsViewMode, viewMode)
         .ignoresSafeArea(edges: .bottom)
         .onChange(of: searchQuery) { _, query in
             let matches = computeMatches(for: query)

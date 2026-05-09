@@ -254,7 +254,9 @@ final class PreviewTextView: UITextView {
             UIKeyCommand(input: "r", modifierFlags: .command, action: #selector(postOpenRandomArchiveScrapCommand)),
             UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(postDismissPresentedUICommand)),
             UIKeyCommand(input: UIKeyCommand.inputLeftArrow, modifierFlags: .command, action: #selector(postPreviousSearchMatchCommand)),
-            UIKeyCommand(input: UIKeyCommand.inputRightArrow, modifierFlags: .command, action: #selector(postNextSearchMatchCommand))
+            UIKeyCommand(input: UIKeyCommand.inputRightArrow, modifierFlags: .command, action: #selector(postNextSearchMatchCommand)),
+            UIKeyCommand(input: UIKeyCommand.inputUpArrow, modifierFlags: .command, action: #selector(postScrollArchiveToTopCommand)),
+            UIKeyCommand(input: UIKeyCommand.inputDownArrow, modifierFlags: .command, action: #selector(postScrollArchiveToBottomCommand))
         ]
     }
 
@@ -280,5 +282,13 @@ final class PreviewTextView: UITextView {
 
     @objc private func postNextSearchMatchCommand() {
         NotificationCenter.default.post(name: .scrapsNextSearchMatch, object: nil)
+    }
+
+    @objc private func postScrollArchiveToTopCommand() {
+        NotificationCenter.default.post(name: .scrapsScrollArchiveToTop, object: nil)
+    }
+
+    @objc private func postScrollArchiveToBottomCommand() {
+        NotificationCenter.default.post(name: .scrapsScrollArchiveToBottom, object: nil)
     }
 }

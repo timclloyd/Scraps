@@ -45,7 +45,9 @@ struct ArchiveListView: View {
                                     cardBackground: .clear,
                                     editorFont: editorFont,
                                     searchQuery: searchQuery,
-                                    activeSearchRange: scrap.id == activeMatchScrapID ? activeMatchRange : nil
+                                    activeSearchRange: scrap.id == activeMatchScrapID ? activeMatchRange : nil,
+                                    allowsSearchNavigationShortcuts: viewMode == .search,
+                                    allowsArchiveNavigationShortcuts: true
                                 )
                                 .background {
                                     GeometryReader { cardGeometry in
@@ -140,6 +142,14 @@ struct ArchiveListView: View {
                     guard viewMode == .archive else { return }
                     scrollToRandomScrap(proxy: proxy)
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .scrapsScrollArchiveToTop)) { _ in
+                    guard viewMode == .archive else { return }
+                    scrollToArchiveTop(proxy: proxy)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .scrapsScrollArchiveToBottom)) { _ in
+                    guard viewMode == .archive else { return }
+                    scrollToArchiveBottom(proxy: proxy)
+                }
             }
         }
     }
@@ -222,19 +232,24 @@ struct ArchiveListView: View {
         )
     }
 
-    private func scrollToArchiveScrap(_ id: String, proxy: ScrollViewProxy, animated: Bool) {
+    private func scrollToArchiveScrap(
+        _ id: String,
+        proxy: ScrollViewProxy,
+        anchor: UnitPoint = .top,
+        animated: Bool
+    ) {
         archiveScrollViewStore.scrollView?.stopDeceleratingImmediately()
 
         DispatchQueue.main.async {
             if animated {
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    proxy.scrollTo(id, anchor: .top)
+                    proxy.scrollTo(id, anchor: anchor)
                 }
             } else {
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    proxy.scrollTo(id, anchor: .top)
+                    proxy.scrollTo(id, anchor: anchor)
                 }
             }
         }
@@ -244,5 +259,15 @@ struct ArchiveListView: View {
         guard let scrap = documentManager.scraps.randomElement() else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         scrollToArchiveScrap(scrap.id, proxy: proxy, animated: true)
+    }
+
+    private func scrollToArchiveTop(proxy: ScrollViewProxy) {
+        guard let newestScrap = documentManager.scraps.last else { return }
+        scrollToArchiveScrap(newestScrap.id, proxy: proxy, anchor: .top, animated: false)
+    }
+
+    private func scrollToArchiveBottom(proxy: ScrollViewProxy) {
+        guard let oldestScrap = documentManager.scraps.first else { return }
+        scrollToArchiveScrap(oldestScrap.id, proxy: proxy, anchor: .bottom, animated: false)
     }
 }

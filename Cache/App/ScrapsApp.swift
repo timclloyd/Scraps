@@ -16,6 +16,19 @@ extension Notification.Name {
     static let scrapsPreviousSearchMatch = Notification.Name("scrapsPreviousSearchMatch")
     static let scrapsNextSearchMatch = Notification.Name("scrapsNextSearchMatch")
     static let scrapsOpenRandomArchiveScrap = Notification.Name("scrapsOpenRandomArchiveScrap")
+    static let scrapsScrollArchiveToTop = Notification.Name("scrapsScrollArchiveToTop")
+    static let scrapsScrollArchiveToBottom = Notification.Name("scrapsScrollArchiveToBottom")
+}
+
+private struct ScrapsViewModeFocusedValueKey: FocusedValueKey {
+    typealias Value = ViewMode
+}
+
+extension FocusedValues {
+    var scrapsViewMode: ViewMode? {
+        get { self[ScrapsViewModeFocusedValueKey.self] }
+        set { self[ScrapsViewModeFocusedValueKey.self] = newValue }
+    }
 }
 
 @main
@@ -58,44 +71,66 @@ struct ScrapsApp: App {
             }
         }
         .commands {
-            CommandGroup(after: .textEditing) {
-                Button("Search") {
-                    NotificationCenter.default.post(name: .scrapsToggleSearch, object: nil)
-                }
-                .keyboardShortcut("f", modifiers: .command)
+            ScrapsCommands()
+        }
+    }
+}
 
-                Button("Toggle View") {
-                    NotificationCenter.default.post(name: .scrapsToggleViewMode, object: nil)
-                }
-                .keyboardShortcut("t", modifiers: .command)
+private struct ScrapsCommands: Commands {
+    @FocusedValue(\.scrapsViewMode) private var viewMode
 
-                Button("Random Scrap") {
-                    NotificationCenter.default.post(name: .scrapsOpenRandomArchiveScrap, object: nil)
-                }
-                .keyboardShortcut("r", modifiers: .command)
-
-                Button("Previous Match") {
-                    NotificationCenter.default.post(name: .scrapsPreviousSearchMatch, object: nil)
-                }
-                .keyboardShortcut(.leftArrow, modifiers: .command)
-
-                Button("Next Match") {
-                    NotificationCenter.default.post(name: .scrapsNextSearchMatch, object: nil)
-                }
-                .keyboardShortcut(.rightArrow, modifiers: .command)
-
-                Button("Close") {
-                    NotificationCenter.default.post(name: .scrapsDismissPresentedUI, object: nil)
-                }
-                .keyboardShortcut(.escape, modifiers: [])
+    var body: some Commands {
+        CommandGroup(after: .textEditing) {
+            Button("Search") {
+                NotificationCenter.default.post(name: .scrapsToggleSearch, object: nil)
             }
+            .keyboardShortcut("f", modifiers: .command)
 
-            CommandGroup(replacing: .appSettings) {
-                Button("Preferences") {
-                    NotificationCenter.default.post(name: .scrapsShowPreferences, object: nil)
-                }
-                .keyboardShortcut(",", modifiers: .command)
+            Button("Toggle View") {
+                NotificationCenter.default.post(name: .scrapsToggleViewMode, object: nil)
             }
+            .keyboardShortcut("t", modifiers: .command)
+
+            Button("Random Scrap") {
+                NotificationCenter.default.post(name: .scrapsOpenRandomArchiveScrap, object: nil)
+            }
+            .keyboardShortcut("r", modifiers: .command)
+
+            Button("Previous Match") {
+                NotificationCenter.default.post(name: .scrapsPreviousSearchMatch, object: nil)
+            }
+            .keyboardShortcut(.leftArrow, modifiers: .command)
+            .disabled(viewMode != .search)
+
+            Button("Next Match") {
+                NotificationCenter.default.post(name: .scrapsNextSearchMatch, object: nil)
+            }
+            .keyboardShortcut(.rightArrow, modifiers: .command)
+            .disabled(viewMode != .search)
+
+            Button("Archive Top") {
+                NotificationCenter.default.post(name: .scrapsScrollArchiveToTop, object: nil)
+            }
+            .keyboardShortcut(.upArrow, modifiers: .command)
+            .disabled(viewMode != .archive)
+
+            Button("Archive Bottom") {
+                NotificationCenter.default.post(name: .scrapsScrollArchiveToBottom, object: nil)
+            }
+            .keyboardShortcut(.downArrow, modifiers: .command)
+            .disabled(viewMode != .archive)
+
+            Button("Close") {
+                NotificationCenter.default.post(name: .scrapsDismissPresentedUI, object: nil)
+            }
+            .keyboardShortcut(.escape, modifiers: [])
+        }
+
+        CommandGroup(replacing: .appSettings) {
+            Button("Preferences") {
+                NotificationCenter.default.post(name: .scrapsShowPreferences, object: nil)
+            }
+            .keyboardShortcut(",", modifiers: .command)
         }
     }
 }

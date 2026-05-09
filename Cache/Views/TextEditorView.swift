@@ -31,6 +31,8 @@ struct TextEditorView: UIViewRepresentable {
     var onBecomeFocused: ((String) -> Void)?
     var searchQuery: String = ""
     var activeSearchRange: NSRange? = nil
+    var allowsSearchNavigationShortcuts: Bool = false
+    var allowsArchiveNavigationShortcuts: Bool = false
     // Optional tap point (in the text view's local coordinate space) captured from
     // the archive preview. When present, the caret is placed at the closest
     // character position on first-responder acquisition instead of defaulting to
@@ -60,6 +62,8 @@ struct TextEditorView: UIViewRepresentable {
         textView.delegate = context.coordinator
         textView.backgroundColor = .clear
         textView.showsVerticalScrollIndicator = false
+        textView.allowsSearchNavigationShortcuts = allowsSearchNavigationShortcuts
+        textView.allowsArchiveNavigationShortcuts = allowsArchiveNavigationShortcuts
 
         // Remove default text container insets so text aligns with separator
         textView.textContainerInset = .zero
@@ -85,6 +89,8 @@ struct TextEditorView: UIViewRepresentable {
 
     func updateUIView(_ uiView: EnhancedTextView, context: Context) {
         context.coordinator.parent = self
+        uiView.allowsSearchNavigationShortcuts = allowsSearchNavigationShortcuts
+        uiView.allowsArchiveNavigationShortcuts = allowsArchiveNavigationShortcuts
 
         if let lm = uiView.textStorage.layoutManagers.first as? TextHighlightManager {
             lm.normalFont = font
@@ -307,6 +313,8 @@ struct TextEditorView: UIViewRepresentable {
 class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
     var onBecomeFocused: (() -> Void)?
     var onAttachedToWindow: (() -> Void)?
+    var allowsSearchNavigationShortcuts = false
+    var allowsArchiveNavigationShortcuts = false
 
     private let strikethroughPreviewLayer = CAShapeLayer()
     private var gestureLineRange: NSRange?
@@ -354,15 +362,22 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
     }
 
     override var keyCommands: [UIKeyCommand]? {
-        [
+        var commands = [
             UIKeyCommand(input: "f", modifierFlags: .command, action: #selector(postToggleSearchCommand)),
             UIKeyCommand(input: ",", modifierFlags: .command, action: #selector(postTogglePreferencesCommand)),
             UIKeyCommand(input: "r", modifierFlags: .command, action: #selector(postOpenRandomArchiveScrapCommand)),
             UIKeyCommand(input: "d", modifierFlags: .command, action: #selector(toggleStrikethroughFocusedLineCommand)),
-            UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(postDismissPresentedUICommand)),
-            UIKeyCommand(input: UIKeyCommand.inputLeftArrow, modifierFlags: .command, action: #selector(postPreviousSearchMatchCommand)),
-            UIKeyCommand(input: UIKeyCommand.inputRightArrow, modifierFlags: .command, action: #selector(postNextSearchMatchCommand))
+            UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(postDismissPresentedUICommand))
         ]
+        if allowsSearchNavigationShortcuts {
+            commands.append(UIKeyCommand(input: UIKeyCommand.inputLeftArrow, modifierFlags: .command, action: #selector(postPreviousSearchMatchCommand)))
+            commands.append(UIKeyCommand(input: UIKeyCommand.inputRightArrow, modifierFlags: .command, action: #selector(postNextSearchMatchCommand)))
+        }
+        if allowsArchiveNavigationShortcuts {
+            commands.append(UIKeyCommand(input: UIKeyCommand.inputUpArrow, modifierFlags: .command, action: #selector(postScrollArchiveToTopCommand)))
+            commands.append(UIKeyCommand(input: UIKeyCommand.inputDownArrow, modifierFlags: .command, action: #selector(postScrollArchiveToBottomCommand)))
+        }
+        return commands
     }
 
     override func didMoveToWindow() {
@@ -410,6 +425,14 @@ class EnhancedTextView: UITextView, UIGestureRecognizerDelegate {
 
     @objc private func postNextSearchMatchCommand() {
         NotificationCenter.default.post(name: .scrapsNextSearchMatch, object: nil)
+    }
+
+    @objc private func postScrollArchiveToTopCommand() {
+        NotificationCenter.default.post(name: .scrapsScrollArchiveToTop, object: nil)
+    }
+
+    @objc private func postScrollArchiveToBottomCommand() {
+        NotificationCenter.default.post(name: .scrapsScrollArchiveToBottom, object: nil)
     }
 
     @objc private func toggleStrikethroughFocusedLineCommand() {
