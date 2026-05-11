@@ -18,6 +18,11 @@ class TextDocument: UIDocument, ObservableObject, @unchecked Sendable {
         }
     }
 
+    private(set) var lastKnownSavedText: String?
+    private(set) var mergeBaseText: String?
+    private(set) var hasLocalEditsSinceMergeBase = false
+    private(set) var localRevision = 0
+
     // Nonisolated snapshot read by contents(forType:) on whatever queue UIDocument chooses,
     // and written by load(fromContents:) before hopping back to the main actor. Avoids
     // DispatchQueue.main.sync which can deadlock with UIDocument's autosave machinery.
@@ -61,16 +66,43 @@ class TextDocument: UIDocument, ObservableObject, @unchecked Sendable {
         if Thread.isMainThread {
             MainActor.assumeIsolated {
                 self.text = loadedText
+                self.markLoadedTextAsSaved(loadedText)
             }
         } else {
             Task { @MainActor in
                 self.text = loadedText
+                self.markLoadedTextAsSaved(loadedText)
             }
         }
     }
 
     func updateText(_ newText: String) {
+        guard text != newText else { return }
+        if hasLocalEditsSinceMergeBase == false {
+            mergeBaseText = lastKnownSavedText ?? text
+            hasLocalEditsSinceMergeBase = true
+        }
+        localRevision += 1
         text = newText
         updateChangeCount(.done)
+    }
+
+    func markSaveSucceeded(text savedText: String, revision savedRevision: Int) {
+        guard savedRevision == localRevision, text == savedText else { return }
+        lastKnownSavedText = savedText
+    }
+
+    private func markLoadedTextAsSaved(_ loadedText: String) {
+        guard documentState.contains(.inConflict) == false else { return }
+        lastKnownSavedText = loadedText
+        mergeBaseText = loadedText
+        hasLocalEditsSinceMergeBase = false
+        localRevision = 0
+    }
+
+    func markConflictResolutionCompleted() {
+        lastKnownSavedText = text
+        mergeBaseText = text
+        hasLocalEditsSinceMergeBase = false
     }
 }

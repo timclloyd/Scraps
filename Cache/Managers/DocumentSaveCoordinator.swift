@@ -8,21 +8,61 @@ final class DocumentSaveCoordinator {
     private var backgroundSaveTaskID: UIBackgroundTaskIdentifier = .invalid
     private var activeSaveAllCount = 0
     private var saveAllWaiters: [CheckedContinuation<Void, Never>] = []
+    private var pendingDocumentSaveTasks: [String: Task<Void, Never>] = [:]
 
     init(widgetReloadScheduler: WidgetReloadScheduler) {
         self.widgetReloadScheduler = widgetReloadScheduler
     }
 
     func saveDocument(_ scrap: Scrap) {
+        pendingDocumentSaveTasks[scrap.id]?.cancel()
+        pendingDocumentSaveTasks[scrap.id] = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .milliseconds(750))
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.pendingDocumentSaveTasks[scrap.id] = nil
+            self.saveDocumentImmediately(scrap)
+        }
+    }
+
+    private func saveDocumentImmediately(_ scrap: Scrap) {
+        let savedText = scrap.document.text
+        let savedRevision = scrap.document.localRevision
         scrap.document.save(to: scrap.document.fileURL, for: .forOverwriting) { [weak widgetReloadScheduler] success in
             if !success {
                 print("Error: Failed to save scrap: \(scrap.filename)")
             } else {
                 Task { @MainActor in
+                    scrap.document.markSaveSucceeded(text: savedText, revision: savedRevision)
                     widgetReloadScheduler?.scheduleReload()
                 }
             }
         }
+    }
+
+    func saveDocumentAndWait(_ scrap: Scrap) async -> Bool {
+        pendingDocumentSaveTasks[scrap.id]?.cancel()
+        pendingDocumentSaveTasks[scrap.id] = nil
+
+        let savedText = scrap.document.text
+        let savedRevision = scrap.document.localRevision
+        let success = await withCheckedContinuation { continuation in
+            scrap.document.save(to: scrap.document.fileURL, for: .forOverwriting) { success in
+                continuation.resume(returning: success)
+            }
+        }
+
+        if success {
+            scrap.document.markSaveSucceeded(text: savedText, revision: savedRevision)
+            widgetReloadScheduler.scheduleReload()
+        } else {
+            print("Error: Failed to save scrap: \(scrap.filename)")
+        }
+
+        return success
     }
 
     func beginBackgroundSaveBarrier(for scraps: [Scrap]) {
@@ -51,6 +91,11 @@ final class DocumentSaveCoordinator {
         _ scraps: [Scrap],
         completion: (@MainActor @Sendable () -> Void)? = nil
     ) {
+        for scrap in scraps {
+            pendingDocumentSaveTasks[scrap.id]?.cancel()
+            pendingDocumentSaveTasks[scrap.id] = nil
+        }
+
         guard !scraps.isEmpty else {
             completion?()
             return
@@ -60,10 +105,16 @@ final class DocumentSaveCoordinator {
 
         let group = DispatchGroup()
         for scrap in scraps {
+            let savedText = scrap.document.text
+            let savedRevision = scrap.document.localRevision
             group.enter()
             scrap.document.save(to: scrap.document.fileURL, for: .forOverwriting) { success in
                 if !success {
                     print("Error: Failed to save scrap: \(scrap.filename)")
+                } else {
+                    Task { @MainActor in
+                        scrap.document.markSaveSucceeded(text: savedText, revision: savedRevision)
+                    }
                 }
                 group.leave()
             }

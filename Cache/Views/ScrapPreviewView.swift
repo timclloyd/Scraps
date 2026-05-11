@@ -204,7 +204,7 @@ struct ScrapPreviewView: UIViewRepresentable {
                 guard let mutation = StrikethroughLineMutation.result(for: lineText, isRightSwipe: isRightSwipe) else { return }
 
                 let updatedText = (currentText as NSString).replacingCharacters(in: lineRange, with: mutation.replacement)
-                parent.document.updateText(updatedText)
+                parent.documentManager.textDidChange(for: parent.scrap, newText: updatedText)
                 textView.text = updatedText
 
                 UIImpactFeedbackGenerator(style: Theme.strikethroughHapticStyle).impactOccurred()
