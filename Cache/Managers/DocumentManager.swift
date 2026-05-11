@@ -31,6 +31,8 @@ class DocumentManager: ObservableObject {
     private let fileStore = ScrapFileStore()
     private let widgetReloadScheduler = WidgetReloadScheduler()
     private lazy var saveCoordinator = DocumentSaveCoordinator(widgetReloadScheduler: widgetReloadScheduler)
+    private let conflictResolver = ScrapConflictResolver()
+    private var resolvingConflictFilenames = Set<String>()
 
     init() {
         // Observe identity changes (user signs out / switches iCloud accounts)
@@ -183,6 +185,10 @@ class DocumentManager: ObservableObject {
 
     @discardableResult
     func createNewScrap() async -> Scrap? {
+        await createNewScrap(initialText: "")
+    }
+
+    private func createNewScrap(initialText: String) async -> Scrap? {
         guard let documentsURL = fileStore.documentsDirectoryURL else {
             print("Error: Could not get documents directory URL")
             return nil
@@ -210,6 +216,9 @@ class DocumentManager: ObservableObject {
         }
         let document = TextDocument(fileURL: fileURL)
         let scrap = Scrap(timestamp: timestamp, filename: filename, document: document)
+        if initialText.isEmpty == false {
+            document.updateText(initialText)
+        }
 
         // Publish the placeholder before the async save so a concurrent createNewScrap
         // sees this filename in `existingFilenames` and picks the next second instead
@@ -224,6 +233,7 @@ class DocumentManager: ObservableObject {
         }
 
         if success {
+            document.markSaveSucceeded(text: initialText, revision: document.localRevision)
             attachObserver(to: document)
             return scrap
         } else {
@@ -508,34 +518,7 @@ class DocumentManager: ObservableObject {
         guard let document = notification.object as? TextDocument else { return }
 
         if document.documentState.contains(.inConflict) {
-            // Conflict resolution: last-writer-wins strategy
-            // UIDocument on iOS does not auto-resolve conflicts - we must handle them manually
-            // iCloud automatically chooses the latest modification as currentVersion
-            do {
-                let url = document.fileURL
-
-                // Get conflict versions BEFORE removing (needed to mark them resolved)
-                let conflictVersions = NSFileVersion.unresolvedConflictVersionsOfItem(at: url) ?? []
-
-                // Remove all non-current versions from iCloud storage
-                try NSFileVersion.removeOtherVersionsOfItem(at: url)
-
-                // Mark ALL conflict versions as resolved (prevents quota consumption)
-                for version in conflictVersions {
-                    version.isResolved = true
-                }
-
-                // Mark current version as resolved (belt-and-suspenders)
-                if let currentVersion = NSFileVersion.currentVersionOfItem(at: url) {
-                    currentVersion.isResolved = true
-                }
-
-                if !conflictVersions.isEmpty {
-                    print("Resolved \(conflictVersions.count) conflict version(s) for \(url.lastPathComponent)")
-                }
-            } catch {
-                print("Error resolving conflict: \(error)")
-            }
+            startConflictResolution(for: document)
         }
 
         // Trigger UI update when document changes from another device
@@ -545,6 +528,86 @@ class DocumentManager: ObservableObject {
             // Already on main actor, no dispatch needed
             self.objectWillChange.send()
         }
+    }
+
+    private func startConflictResolution(for document: TextDocument) {
+        let filename = document.fileURL.lastPathComponent
+        guard resolvingConflictFilenames.insert(filename).inserted else { return }
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.resolveConflict(for: document)
+            self.resolvingConflictFilenames.remove(filename)
+        }
+    }
+
+    private func resolveConflict(for document: TextDocument) async {
+        guard let scrap = scraps.first(where: { $0.document === document }) else {
+            print("Warning: Cannot resolve conflict for unloaded document: \(document.fileURL.lastPathComponent)")
+            return
+        }
+
+        let url = document.fileURL
+        let conflictVersions = NSFileVersion.unresolvedConflictVersionsOfItem(at: url) ?? []
+        guard conflictVersions.isEmpty == false else { return }
+
+        print("Resolving sync conflict for \(url.lastPathComponent): \(conflictVersions.count) conflict version(s)")
+
+        switch await conflictResolver.resolution(for: document, conflictVersions: conflictVersions) {
+        case .failed:
+            print("Error: Failed to read all conflict versions for \(url.lastPathComponent); leaving conflict unresolved")
+            return
+
+        case .noOp:
+            guard await saveCoordinator.saveDocumentAndWait(scrap) else { return }
+            do {
+                try markConflictVersionsResolved(at: url, conflictVersions: conflictVersions)
+                document.markConflictResolutionCompleted()
+            } catch {
+                print("Error resolving duplicate conflict versions for \(url.lastPathComponent): \(error)")
+            }
+
+        case .merged(let mergedText):
+            document.updateText(mergedText)
+            guard await saveCoordinator.saveDocumentAndWait(scrap) else { return }
+            do {
+                try markConflictVersionsResolved(at: url, conflictVersions: conflictVersions)
+                document.markConflictResolutionCompleted()
+                print("Merged sync conflict for \(url.lastPathComponent)")
+            } catch {
+                print("Error marking merged conflict resolved for \(url.lastPathComponent): \(error)")
+            }
+
+        case .preserveVersions(let versions):
+            let preservedText = ScrapConflictPlanner.appendingPreservedConflictSections(
+                to: document.text,
+                originalFilename: scrap.filename,
+                versions: versions
+            )
+            if preservedText != document.text {
+                document.updateText(preservedText)
+            }
+            guard await saveCoordinator.saveDocumentAndWait(scrap) else { return }
+
+            do {
+                try markConflictVersionsResolved(at: url, conflictVersions: conflictVersions)
+                document.markConflictResolutionCompleted()
+                print("Preserved \(versions.count) sync conflict version(s) inline for \(url.lastPathComponent)")
+            } catch {
+                print("Error marking preserved conflict resolved for \(url.lastPathComponent): \(error)")
+            }
+        }
+    }
+
+    private func markConflictVersionsResolved(
+        at url: URL,
+        conflictVersions: [NSFileVersion]
+    ) throws {
+        try NSFileVersion.removeOtherVersionsOfItem(at: url)
+        for version in conflictVersions {
+            version.isResolved = true
+        }
+        NSFileVersion.currentVersionOfItem(at: url)?.isResolved = true
     }
 
     nonisolated deinit {
